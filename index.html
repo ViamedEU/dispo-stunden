@@ -64,6 +64,13 @@
 
     .raster { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 1rem; align-items: start; }
     @media (min-width: 1300px) { .raster { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr); } .tag { grid-template-columns: 100px minmax(0, 1fr) auto auto; gap: 0.8rem; } }
+    .tag-knoepfe { display: flex; gap: 0.35rem; justify-content: flex-end; flex-wrap: wrap; }
+    .korr-zeile.fenster-zeile { grid-template-columns: 120px 120px 44px; margin-bottom: 0.5rem; }
+    .korr-zeile.einzeln, .korr-zeile.fahrzeug-zeile { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .korr-zeile select { display: block; width: 100%; height: 44px; margin-top: 0.25rem; border-radius: 12px; border: 2px solid transparent; background: var(--feld); padding: 0 0.7rem; font: inherit; color: var(--tinte); }
+    .x-klein { height: 44px; border: none; border-radius: 12px; background: var(--feld); color: var(--leise); font-size: 1.1rem; cursor: pointer; }
+    .link-plus { border: none; background: none; color: #1d4ed8; font-weight: 800; font-size: 0.85rem; cursor: pointer; padding: 0.2rem 0 0.6rem; }
+    .hinweis-klein { font-size: 0.78rem; color: var(--leise); align-self: end; padding-bottom: 0.6rem; }
     .tag-aktion { border: none; background: var(--feld); color: var(--text); border-radius: 10px; padding: 0.35rem 0.65rem; font-weight: 700; font-size: 0.78rem; cursor: pointer; white-space: nowrap; }
     .tag-aktion:hover { background: var(--gruen-hell); color: #1f6b2b; }
     .tag.korrigiert { background: #f3f8ff; }
@@ -241,24 +248,30 @@
       const bekannt = new Set((daten.mitarbeiterAlle || daten.mitarbeiter).map((m) => norm(m.name)));   // auch Ausgeschiedene sind kein Tippfehler
       const person = (name) => { const k = norm(name); if (!liste.has(k)) liste.set(k, { name: name, inListe: bekannt.has(k), tage: {}, summe: 0, flags: 0 }); return liste.get(k); };
       const tagEintrag = (p, iso) => (p.tage[iso] = p.tage[iso] || []);
-      const gesehen = new Set();
+      const gesehen = new Set(), doppelte = {};
       daten.eintraege.forEach((e) => {
         const p = person(e.name);
         if (e.art === "arbeit") {
           const schluessel = norm(e.name) + "|" + e.datum + "|" + e.beginn + "|" + e.ende;
           const x = { art: "arbeit", beginn: e.beginn, ende: e.ende, fahrzeug: e.fahrzeug, netto: e.netto, notiz: e.notiz, flags: [],
-                      zeile: e.zeile, name: e.name, datum: e.datum, nettoGemeldet: e.nettoGemeldet != null ? e.nettoGemeldet : e.netto, leerzeit: e.leerzeit || 0, korrektur: e.korrektur || null };
-          if (gesehen.has(schluessel)) { x.doppelt = true; x.flags.push("doppelt"); hinweise.push({ p, datum: e.datum, typ: "doppelt", text: "<b>" + esc(p.name) + "</b> – " + kurz(e.datum) + ": " + esc(e.beginn + "–" + e.ende) + " ist doppelt eingetragen. Zählt nur einmal." }); }
+                      zeile: e.zeile, name: e.name, datum: e.datum, nettoGemeldet: e.nettoGemeldet != null ? e.nettoGemeldet : e.netto, leerzeit: e.leerzeit || 0, korrektur: e.korrektur || null, fahrzeugAlt: e.fahrzeugAlt || null };
+          // Doppelt = gleiche Person, gleicher Tag, genau gleiche Zeit. Mehrere Fahrten nacheinander am selben Tag sind normal.
+          if (gesehen.has(schluessel)) { x.doppelt = true; x.flags.push("doppelt"); const g = norm(e.name) + "|" + e.datum; (doppelte[g] = doppelte[g] || { p, datum: e.datum, zeiten: [] }).zeiten.push(e.beginn + "–" + e.ende); }
           else { gesehen.add(schluessel); p.summe += e.netto; }
           if (e.fahrzeug && !fzg.has(normKz(e.fahrzeug)) && !x.doppelt) { x.flags.push("fahrzeug"); hinweise.push({ p, datum: e.datum, typ: "fahrzeug", text: "<b>" + esc(p.name) + "</b> – " + kurz(e.datum) + ": Fahrzeug „" + esc(e.fahrzeug) + "“ steht nicht in der Fuhrpark-Liste." }); }
           tagEintrag(p, e.datum).push(x);
         } else {
           const alle = tageZwischen(e.von, e.bis).filter(werktag);
           const proTag = alle.length ? e.netto / alle.length : 0;
-          alle.filter((t) => t >= anfang && t <= ende).forEach((t) => { tagEintrag(p, t).push({ art: e.art, netto: proTag, notiz: e.notiz, flags: [] }); p.summe += proTag; });
+          alle.filter((t) => t >= anfang && t <= ende).forEach((t) => { tagEintrag(p, t).push({ art: e.art, netto: proTag, notiz: e.notiz, flags: [], quelle: e, stundenOffen: !!e.stundenOffen }); p.summe += proTag; });
+          if (e.stundenOffen) hinweise.push({ p, typ: "urlaub", text: "<b>" + esc(p.name) + "</b> – Urlaub " + kurz(e.von) + " – " + kurz(e.bis) + ": Stunden fehlen noch (beim Mitarbeiter auf „Stunden eintragen“)." });
         }
       });
-      // Überschneidungen am selben Tag
+      // Doppelt abgeschickt: ein Hinweis pro Person und Tag
+      Object.values(doppelte).forEach((d) => hinweise.push({ p: d.p, datum: d.datum, typ: "doppelt", text: "<b>" + esc(d.p.name) + "</b> – " + kurz(d.datum) + ": " +
+        (d.zeiten.length === 1 ? esc(d.zeiten[0]) + " steht mit genau gleicher Zeit zweimal drin. Zählt nur einmal."
+                               : d.zeiten.length + " Einträge stehen mit genau gleicher Zeit doppelt drin (" + esc(d.zeiten.join(", ")) + "). Zählen nur einmal.") }));
+      // Überschneidungen am selben Tag (Fahrten direkt nacheinander, z. B. bis 12:35 und ab 12:35, sind keine)
       liste.forEach((p) => Object.keys(p.tage).forEach((t) => {
         const a = p.tage[t].filter((x) => x.art === "arbeit" && !x.doppelt);
         for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) {
@@ -284,7 +297,7 @@
 
     // ---------- Anzeige ----------
     function sichtbar() { return personen.filter((p) => !suche || norm(p.name).includes(suche)); }
-    const ICON = { doppelt: ["2×", "#e11d48"], ueberschneidung: ["↔", "#ea580c"], fahrzeug: ["?", "#ca8a04"], name: ["Aa", "#7c3aed"], luecke: ["…", "#64748b"] };
+    const ICON = { urlaub: ["U", "#0284c7"], doppelt: ["2×", "#e11d48"], ueberschneidung: ["↔", "#ea580c"], fahrzeug: ["?", "#ca8a04"], name: ["Aa", "#7c3aed"], luecke: ["…", "#64748b"] };
 
     function zeichne() {
       $("monat-text").textContent = monatText(monat);
@@ -388,73 +401,146 @@
       }));
     }
 
-    let korrigierbar = [];
+    let aktionen = [];
     function rechts() {
       const p = gewaehlt;
-      korrigierbar = [];
+      aktionen = [];
       if (!p) { $("rechts").innerHTML = '<div class="leer">Mitarbeiter anklicken, um die einzelnen Tage zu sehen.</div>'; return; }
       const anfang = monat + "-01", letzter = isoVon(new Date(+monat.slice(0, 4), +monat.slice(5, 7), 0));
       const bis = monat === daten.heute.slice(0, 7) ? daten.heute : letzter;
-      const zeilen = tageZwischen(anfang, bis).reverse().map((t) => {
+      const urlaubGezeigt = new Set();
+      const knopf = (text, typ, x) => '<button type="button" class="tag-aktion" data-a="' + aktionen.push({ typ: typ, x: x }) + '">' + text + "</button>";
+      const zeilen = tageZwischen(anfang, bis).map((t) => {   // aufsteigend: der 1. steht oben
         const es = p.tage[t] || [], we = !werktag(t), d = alsDatum(t);
         const dtxt = '<div class="d">' + d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }) + "<small>" + d.toLocaleDateString("de-DE", { weekday: "long" }) + "</small></div>";
-        if (!es.length) return we ? "" : '<div class="tag">' + dtxt + '<div style="color:var(--leise)">kein Eintrag</div><div></div></div>';
+        if (!es.length) return we ? "" : '<div class="tag">' + dtxt + '<div style="color:var(--leise)">kein Eintrag</div><div></div><div></div></div>';
         return es.map((x) => {
           const warn = x.flags.length, cls = x.art === "urlaub" ? " urlaub" : x.art === "krank" ? " krank" : warn ? " warn" : "";
           const flags = x.flags.map((f) => '<span class="pill w">' + ({ doppelt: "doppelt", ueberschneidung: "überschneidet", fahrzeug: "Fahrzeug?" })[f] + "</span>").join(" ");
-          const zeit = x.korrektur ? '<span class="alt">' + esc(x.beginn + "–" + x.ende) + "</span> → <b>" + esc(x.korrektur.zeit) + '</b> <span class="pill kor">korrigiert</span>'
-            : esc(x.beginn + "–" + x.ende) + (x.leerzeit > 0 ? ' <span class="pill">−' + std(x.leerzeit) + " Leerzeit</span>" : "");
-          const mitte = x.art === "urlaub" ? '<span class="pill u">Urlaub</span>' : x.art === "krank" ? '<span class="pill k">Krank</span>' :
-            zeit + (x.fahrzeug ? ' <span class="pill">' + esc(x.fahrzeug) + "</span>" : "") + " " + flags;
-          const notiz = x.art !== "arbeit" ? "" : (x.notiz ? '<span class="notiz">' + esc(x.notiz) + "</span>" : "") + (x.korrektur ? '<span class="notiz">Korrektur: ' + esc(x.korrektur.grund) + (x.korrektur.am ? " (" + esc(x.korrektur.am) + ")" : "") + "</span>" : "");
-          const knopf = x.art === "arbeit" && !x.doppelt && x.zeile ? '<button type="button" class="tag-aktion" data-k="' + korrigierbar.push(x) + '">' + (x.korrektur ? "Ändern" : "Korrigieren") + "</button>" : "<span></span>";
-          return '<div class="tag' + cls + (x.korrektur ? " korrigiert" : "") + (we ? " we" : "") + '">' + dtxt + "<div>" + mitte + notiz + '</div><div class="h">' + (x.doppelt ? '<s style="color:var(--leise)">' + std(x.netto) + "</s>" : std(x.netto)) + "</div>" + knopf + "</div>";
+          let mitte, notiz = "", knoepfe = "";
+          if (x.art === "arbeit") {
+            const abzug = x.korrektur ? ' <span class="pill kor">−' + std(x.korrektur.abzug) + " Std. Abzug " + esc(x.korrektur.abzugszeit) + "</span>"
+              : x.leerzeit > 0 ? ' <span class="pill">−' + std(x.leerzeit) + " Leerzeit</span>" : "";
+            const fz = x.fahrzeugAlt ? ' <span class="pill kor"><span class="alt">' + esc(x.fahrzeugAlt.alt || "ohne") + "</span> → " + esc(x.fahrzeug || "ohne Fahrzeug") + "</span>"
+              : ' <span class="pill">' + esc(x.fahrzeug || "ohne Fahrzeug") + "</span>";
+            mitte = "<b>" + esc(x.beginn + "–" + x.ende) + "</b>" + abzug + fz + " " + flags;
+            notiz = (x.notiz ? '<span class="notiz">' + esc(x.notiz) + "</span>" : "") +
+              (x.korrektur ? '<span class="notiz">Abzug: ' + esc(x.korrektur.grund) + (x.korrektur.am ? " (" + esc(x.korrektur.am) + ")" : "") + "</span>" : "") +
+              (x.fahrzeugAlt ? '<span class="notiz">Fahrzeug geändert: ' + esc(x.fahrzeugAlt.grund) + (x.fahrzeugAlt.am ? " (" + esc(x.fahrzeugAlt.am) + ")" : "") + "</span>" : "");
+            if (!x.doppelt && x.zeile) knoepfe = knopf(x.korrektur ? "Abzug ändern" : "Abzug", "abzug", x) + knopf("Fahrzeug", "fahrzeug", x);
+          } else {
+            const q = x.quelle || {};
+            mitte = (x.art === "urlaub" ? '<span class="pill u">Urlaub</span>' : '<span class="pill k">Krank</span>') +
+              (q.von ? ' <span class="pill">' + kurz(q.von) + " – " + kurz(q.bis) + "</span>" : "") + (x.stundenOffen ? ' <span class="pill w">Stunden fehlen</span>' : "");
+            if (x.art === "urlaub" && q.zeile && !urlaubGezeigt.has(q.zeile)) { urlaubGezeigt.add(q.zeile); knoepfe = knopf(x.stundenOffen ? "Stunden eintragen" : "Stunden ändern", "urlaub", x); }
+          }
+          const stunden = x.stundenOffen ? '<span style="color:var(--leise)">–</span>' : x.doppelt ? '<s style="color:var(--leise)">' + std(x.netto) + "</s>" : std(x.netto);
+          return '<div class="tag' + cls + (x.korrektur || x.fahrzeugAlt ? " korrigiert" : "") + (we ? " we" : "") + '">' + dtxt + "<div>" + mitte + notiz + '</div><div class="h">' + stunden + '</div><div class="tag-knoepfe">' + knoepfe + "</div></div>";
         }).join("");
       }).join("");
       $("rechts").innerHTML = '<div class="detail-kopf"><div class="ava" style="background:' + (p.inListe ? farbe(p.name) : "#94a3b8") + '">' + esc(initialen(p.name)) + '</div><div><strong>' + esc(p.name) + "</strong>" + (p.inListe ? "" : '<span class="pill w">nicht in der Liste</span>') + '</div><div class="gross">' + std(p.summe) + "<small>Std. netto " + esc(monatText(monat).split(" ")[0]) + "</small></div></div>" + zeilen;
-      document.querySelectorAll("#rechts [data-k]").forEach((b) => b.addEventListener("click", () => korrekturFormular(b, korrigierbar[+b.dataset.k - 1])));
+      document.querySelectorAll("#rechts [data-a]").forEach((b) => b.addEventListener("click", () => {
+        const a = aktionen[+b.dataset.a - 1];
+        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular })[a.typ](b, a.x);
+      }));
     }
 
-    // ---------- Zeit korrigieren ----------
+    // ---------- Abzug, Fahrzeug, Urlaubsstunden ----------
     function nettoAus(b, e) { const brutto = (minuten(e) - minuten(b)) / 60; return Math.round((brutto - (brutto >= 8 ? 0.75 : brutto >= 6 ? 0.5 : 0)) * 100) / 100; }
-    function korrekturFormular(knopf, x) {
+    const rund = (x) => Math.round(x * 100) / 100;
+    function basis(x) { return { pin: speicherS("az_dispo_pin"), zeile: x.zeile, name: x.name, datum: x.datum, beginn: x.beginn, ende: x.ende }; }
+    function formularOeffnen(knopf, html) {
       document.querySelectorAll("#rechts .korr").forEach((f) => f.remove());
-      const zeile = knopf.closest(".tag");
-      const vor = x.korrektur ? x.korrektur.zeit.split("–") : [x.beginn, x.ende];
       const f = document.createElement("div");
-      f.className = "korr";
-      f.innerHTML = '<div class="korr-kopf">Gemeldet vom Mitarbeiter: <b>' + esc(x.beginn + "–" + x.ende) + "</b> · " + std(x.nettoGemeldet) + " Std. netto. Tatsächliche Zeit eintragen:</div>" +
-        '<div class="korr-zeile"><label>Beginn<input type="time" class="k-b" value="' + esc(vor[0]) + '" /></label><label>Ende<input type="time" class="k-e" value="' + esc(vor[1]) + '" /></label>' +
-        '<label class="grund">Grund<input type="text" class="k-g" placeholder="z. B. Fahrzeug stand ab 13:30" value="' + esc(x.korrektur ? x.korrektur.grund : "") + '" /></label></div>' +
-        '<div class="korr-vorschau"></div><div class="korr-knoepfe"><button type="button" class="speichern">Korrektur speichern</button><button type="button" class="neben">Abbrechen</button>' +
-        (x.korrektur ? '<button type="button" class="aufheben">Korrektur aufheben</button>' : "") + "</div>";
-      zeile.after(f);
-      const b = f.querySelector(".k-b"), e = f.querySelector(".k-e"), g = f.querySelector(".k-g"), vs = f.querySelector(".korr-vorschau"), sp = f.querySelector(".speichern");
-      function vorschau() {
-        if (!b.value || !e.value || minuten(e.value) <= minuten(b.value)) { vs.innerHTML = '<span class="warn">Ende muss nach dem Beginn liegen.</span>'; sp.disabled = true; return; }
-        const neu = nettoAus(b.value, e.value), abzug = Math.round((x.nettoGemeldet - neu) * 100) / 100;
-        if (abzug < 0) { vs.innerHTML = '<span class="warn">Das wären mehr Stunden als gemeldet (' + std(neu) + "). Zusätzliche Zeit bitte als eigenen Eintrag erfassen.</span>"; sp.disabled = true; return; }
-        if (abzug === 0) { vs.innerHTML = '<span class="warn">Gleiche Stunden wie gemeldet – nichts zu korrigieren.</span>'; sp.disabled = true; return; }
-        vs.innerHTML = "Neu: " + std(neu) + ' Std. netto <span class="minus">(−' + std(abzug) + " Std.)</span>";
-        sp.disabled = false;
-      }
-      [b, e].forEach((i) => i.addEventListener("input", vorschau)); vorschau();
+      f.className = "korr"; f.innerHTML = html;
+      knopf.closest(".tag").after(f);
       f.querySelector(".neben").addEventListener("click", () => f.remove());
-      sp.addEventListener("click", () => { if (!g.value.trim()) { g.focus(); toast("Bitte einen Grund angeben.", true); return; } korrekturSenden(x, { beginnNeu: b.value, endeNeu: e.value, grund: g.value.trim() }); });
-      const auf = f.querySelector(".aufheben"); if (auf) auf.addEventListener("click", () => korrekturSenden(x, { aufheben: true }));
-      e.focus();
+      return f;
     }
-    async function korrekturSenden(x, felder) {
+    async function aktionSenden(body, okText) {
       $("laden").hidden = false;
       let r;
-      try { r = await apiPost(Object.assign({ aktion: "korrektur", pin: speicherS("az_dispo_pin"), zeile: x.zeile, name: x.name, datum: x.datum, beginn: x.beginn, ende: x.ende }, felder)); }
-      catch (err) { r = { status: "error", message: "Keine Verbindung – nichts geändert." }; }
+      try { r = await apiPost(body); } catch (err) { r = { status: "error", message: "Keine Verbindung – nichts geändert." }; }
       $("laden").hidden = true;
-      if (r.status === "ok") {
-        toast(felder.aufheben ? "Korrektur aufgehoben" : "Korrigiert: " + std(r.nettoGemeldet) + " → " + std(r.nettoNeu) + " Std.");
-        await lade(speicherS("az_dispo_pin"));
-      } else if (r.status === "pin" || r.status === "gesperrt") { toast(r.message, true); $("abmelden").click(); }
+      if (r.status === "ok") { toast(okText(r)); await lade(speicherS("az_dispo_pin")); }
+      else if (r.status === "pin" || r.status === "gesperrt") { toast(r.message, true); $("abmelden").click(); }
       else toast(r.message || "Fehler.", true);
+    }
+
+    // Abzugszeit: z. B. Standzeit 10:00–12:00 → diese Dauer wird abgezogen, die gemeldete Zeit bleibt sichtbar
+    function abzugFormular(knopf, x) {
+      const vorher = x.korrektur ? x.korrektur.abzugszeit.split(/\s*,\s*/).map((t) => t.split("–")) : [["", ""]];
+      const f = formularOeffnen(knopf, '<div class="korr-kopf">Gemeldet: <b>' + esc(x.beginn + "–" + x.ende) + "</b> · " + std(x.nettoGemeldet) + " Std. netto. Abzugszeit eintragen (z. B. Standzeit):</div>" +
+        '<div class="fenster"></div><button type="button" class="link-plus">+ weitere Abzugszeit</button>' +
+        '<div class="korr-zeile einzeln"><label class="grund">Grund<input type="text" class="k-g" placeholder="z. B. Standzeit, Fahrzeug stand laut GPS" value="' + esc(x.korrektur ? x.korrektur.grund : "") + '" /></label></div>' +
+        '<div class="korr-vorschau"></div><div class="korr-knoepfe"><button type="button" class="speichern">Abzug speichern</button><button type="button" class="neben">Abbrechen</button>' +
+        (x.korrektur ? '<button type="button" class="aufheben">Abzug entfernen</button>' : "") + "</div>");
+      const box = f.querySelector(".fenster"), g = f.querySelector(".k-g"), vs = f.querySelector(".korr-vorschau"), sp = f.querySelector(".speichern");
+      const fenster = () => [...box.querySelectorAll(".fenster-zeile")].map((z) => ({ von: z.querySelector(".k-von").value, bis: z.querySelector(".k-bis").value }));
+      function zeileNeu(von, bis) {
+        const d = document.createElement("div");
+        d.className = "korr-zeile fenster-zeile";
+        d.innerHTML = '<label>Von<input type="time" class="k-von" value="' + esc(von || "") + '" /></label><label>Bis<input type="time" class="k-bis" value="' + esc(bis || "") + '" /></label><button type="button" class="x-klein" title="Abzugszeit entfernen">×</button>';
+        d.querySelector(".x-klein").addEventListener("click", () => { if (box.children.length > 1) { d.remove(); vorschau(); } });
+        d.querySelectorAll("input").forEach((i) => i.addEventListener("input", vorschau));
+        box.appendChild(d);
+        return d;
+      }
+      function vorschau() {
+        const fe = fenster(); let summe = 0;
+        const fehler = (t) => { vs.innerHTML = '<span class="warn">' + t + "</span>"; sp.disabled = true; };
+        for (let i = 0; i < fe.length; i++) {
+          const w = fe[i];
+          if (!w.von || !w.bis) return fehler("Bitte bei jeder Abzugszeit von und bis eintragen.");
+          if (minuten(w.bis) <= minuten(w.von)) return fehler("„Bis“ muss nach „von“ liegen.");
+          if (minuten(w.von) < minuten(x.beginn) || minuten(w.bis) > minuten(x.ende)) return fehler("Die Abzugszeit muss in der gemeldeten Zeit " + esc(x.beginn + "–" + x.ende) + " liegen.");
+          for (let j = 0; j < i; j++) if (minuten(w.von) < minuten(fe[j].bis) && minuten(fe[j].von) < minuten(w.bis)) return fehler("Die Abzugszeiten überschneiden sich.");
+          summe += (minuten(w.bis) - minuten(w.von)) / 60;
+        }
+        summe = rund(summe);
+        if (summe > x.nettoGemeldet) return fehler("Der Abzug ist größer als die gemeldeten Stunden.");
+        vs.innerHTML = 'Abzug <span class="minus">−' + std(summe) + " Std.</span> → <b>neu " + std(rund(x.nettoGemeldet - summe)) + " Std. netto</b> (gemeldet " + std(x.nettoGemeldet) + ")";
+        sp.disabled = false;
+      }
+      vorher.forEach((v) => zeileNeu(v[0], v[1]));
+      f.querySelector(".link-plus").addEventListener("click", () => { zeileNeu().querySelector(".k-von").focus(); vorschau(); });
+      vorschau();
+      sp.addEventListener("click", () => {
+        if (!g.value.trim()) { g.focus(); toast("Bitte einen Grund angeben.", true); return; }
+        aktionSenden(Object.assign(basis(x), { aktion: "korrektur", abzuege: fenster(), grund: g.value.trim() }), (r) => "Abzug gespeichert: " + std(r.nettoGemeldet) + " → " + std(r.nettoNeu) + " Std.");
+      });
+      const auf = f.querySelector(".aufheben"); if (auf) auf.addEventListener("click", () => aktionSenden(Object.assign(basis(x), { aktion: "korrektur", aufheben: true }), () => "Abzug entfernt"));
+      box.querySelector(".k-von").focus();
+    }
+
+    // Fahrzeug ändern: falsch angetipptes Fahrzeug korrigieren (z. B. nach Blick in DMRZ)
+    function fahrzeugFormular(knopf, x) {
+      const liste = daten.fahrzeugListe || daten.fahrzeuge.map((k) => ({ kennzeichen: k, name: "", kategorie: "" }));
+      const gruppen = {};
+      liste.forEach((fz) => { const g = fz.kategorie || "Weitere"; (gruppen[g] = gruppen[g] || []).push(fz); });
+      const optionen = '<option value="">Ohne Fahrzeug</option>' + Object.keys(gruppen).sort((a, b) => a === "Verliehen" ? 1 : b === "Verliehen" ? -1 : a.localeCompare(b)).map((g) =>
+        '<optgroup label="' + esc(g) + '">' + gruppen[g].map((fz) => '<option value="' + esc(fz.kennzeichen) + '"' + (normKz(fz.kennzeichen) === normKz(x.fahrzeug) ? " selected" : "") + ">" + esc(fz.kennzeichen + (fz.name ? " · " + fz.name : "")) + "</option>").join("") + "</optgroup>").join("");
+      const f = formularOeffnen(knopf, '<div class="korr-kopf">Eingetragen: <b>' + esc(x.fahrzeug || "ohne Fahrzeug") + "</b>. Richtiges Fahrzeug wählen (z. B. laut DMRZ):</div>" +
+        '<div class="korr-zeile fahrzeug-zeile"><label>Fahrzeug<select class="k-fz">' + optionen + '</select></label><label class="grund">Grund <span style="font-weight:500">(optional)</span><input type="text" class="k-g" placeholder="z. B. laut DMRZ" /></label></div>' +
+        '<div class="korr-knoepfe"><button type="button" class="speichern">Fahrzeug speichern</button><button type="button" class="neben">Abbrechen</button></div>');
+      const sel = f.querySelector(".k-fz"), sp = f.querySelector(".speichern");
+      const pruefe = () => { sp.disabled = normKz(sel.value) === normKz(x.fahrzeug); };
+      sel.addEventListener("change", pruefe); pruefe();
+      sp.addEventListener("click", () => aktionSenden(Object.assign(basis(x), { aktion: "fahrzeug", fahrzeug: sel.value, altFz: x.fahrzeug, grund: f.querySelector(".k-g").value.trim() }),
+        (r) => "Fahrzeug geändert: " + (r.alt || "ohne") + " → " + (r.neu || "ohne")));
+      sel.focus();
+    }
+
+    // Urlaubsstunden: die App trägt nur den Zeitraum ein, die Stunden setzt die Dispo (z. B. Minijob 2 Std./Tag)
+    function urlaubFormular(knopf, x) {
+      const q = x.quelle, tage = tageZwischen(q.von, q.bis).filter(werktag).length;
+      const f = formularOeffnen(knopf, '<div class="korr-kopf">Urlaub <b>' + kurz(q.von) + " – " + kurz(q.bis) + "</b> (" + tage + (tage === 1 ? " Werktag" : " Werktage") + "). Urlaubsstunden für den ganzen Zeitraum:</div>" +
+        '<div class="korr-zeile fahrzeug-zeile"><label>Stunden gesamt<input type="number" class="k-std" min="0" step="0.25" inputmode="decimal" value="' + (x.stundenOffen ? "" : rund(q.netto)) + '" /></label><div class="hinweis-klein">z. B. ' + tage + " × 8 = " + tage * 8 + " Std. bei Vollzeit; bei Minijob die vereinbarten Stunden. Leer = noch offen.</div></div>" +
+        '<div class="korr-knoepfe"><button type="button" class="speichern">Stunden speichern</button><button type="button" class="neben">Abbrechen</button></div>');
+      const inp = f.querySelector(".k-std");
+      f.querySelector(".speichern").addEventListener("click", () => aktionSenden({ aktion: "urlaubstunden", pin: speicherS("az_dispo_pin"), zeile: q.zeile, name: q.name, von: q.von, stunden: inp.value },
+        (r) => r.stunden === "" ? "Urlaubsstunden entfernt" : "Urlaubsstunden gespeichert: " + std(r.stunden) + " Std."));
+      inp.focus();
     }
 
     // ---------- Bedienung ----------
@@ -480,12 +566,20 @@
         return new Promise((ok) => setTimeout(() => {
           if (!b.pin) return ok({ status: "pin", message: "PIN falsch." });
           if (b.aktion === "korrektur") {
-            const key = [b.name, b.datum, b.beginn, b.ende].join("|"), gem = nettoAus(b.beginn, b.ende);
-            if (b.aufheben) { delete this.korr[key]; return ok({ status: "ok", nettoGemeldet: gem, nettoNeu: gem, abzug: 0 }); }
-            const neu = nettoAus(b.beginnNeu, b.endeNeu), abzug = Math.round((gem - neu) * 100) / 100;
-            if (abzug <= 0) return ok({ status: "error", message: "Nur Kürzungen möglich." });
-            this.korr[key] = { beginnNeu: b.beginnNeu, endeNeu: b.endeNeu, grund: b.grund, abzug: abzug };
-            return ok({ status: "ok", nettoGemeldet: gem, nettoNeu: neu, abzug: abzug });
+            const key = [b.name, b.datum, b.beginn, b.ende].join("|");
+            if (b.aufheben) { delete this.korr[key]; return ok({ status: "ok", abzug: 0 }); }
+            const abzug = Math.round(b.abzuege.reduce((a, w) => a + (minuten(w.bis) - minuten(w.von)) / 60, 0) * 100) / 100, gem = nettoAus(b.beginn, b.ende);
+            this.korr[key] = { abzugszeit: b.abzuege.slice().sort((a, c) => minuten(a.von) - minuten(c.von)).map((w) => w.von + "–" + w.bis).join(", "), grund: b.grund, abzug: abzug };
+            return ok({ status: "ok", nettoGemeldet: gem, nettoNeu: Math.round((gem - abzug) * 100) / 100, abzug: abzug });
+          }
+          if (b.aktion === "fahrzeug") {
+            const key = [b.name, b.datum, b.beginn, b.ende].join("|"), alt = b.altFz;
+            this.fzAend[key] = { alt: this.fzAend[key] ? this.fzAend[key].alt : b.altFz, neu: b.fahrzeug, grund: b.grund || "Fahrzeug korrigiert" };
+            return ok({ status: "ok", alt: alt, neu: b.fahrzeug });
+          }
+          if (b.aktion === "urlaubstunden") {
+            this.urlaubStd[b.name + "|" + b.von] = b.stunden === "" ? undefined : Number(String(b.stunden).replace(",", "."));
+            return ok({ status: "ok", stunden: b.stunden === "" ? "" : Number(String(b.stunden).replace(",", ".")) });
           }
           if (b.aktion === "mitarbeiter") {
             const t = this.teamListe(), m = t.find((x) => norm(x.name) === norm(b.name));
@@ -497,7 +591,7 @@
         }, 500));
       },
       team: null,
-      korr: {},
+      korr: {}, fzAend: {}, urlaubStd: {},
       teamListe() {
         if (!this.team) this.team = ["Anna Beispiel", "Berta Probe", "Carl Muster", "Dana Test", "Emil Entwurf", "Frieda Vorlage", "Gustav Platzhalter", "Hanna Skizze", "Ilse Modell", "Jonas Prototyp", "Karla Schablone", "Lukas Attrappe", "Mia Fiktiv", "Noah Annahme"]
           .map((n, i) => ({ name: n, aktiv: true, datev: String(100 + i * 7) })).concat([{ name: "Otto Ehemalig", aktiv: false, datev: "42" }]);
@@ -525,18 +619,21 @@
           e.push({ name: "Emil Entwurf", datum: "2026-10-14", art: "arbeit", beginn: "12:00", ende: "16:00", fahrzeug: "EU-VM 913", netto: 4, notiz: "Fahrzeug gewechselt" });
           e.push({ name: "Karla Schablone", datum: "2026-10-08", art: "arbeit", beginn: "06:30", ende: "14:00", fahrzeug: "EU-VM 1", netto: 7, notiz: "" });
           e.push({ name: "Carla Schablone", datum: "2026-10-09", art: "arbeit", beginn: "06:30", ende: "14:00", fahrzeug: "EU-VM 101", netto: 7, notiz: "" });
-          e.push({ name: "Ilse Modell", datum: "2026-10-12", art: "urlaub", von: "2026-10-12", bis: "2026-10-16", netto: 40, notiz: "Urlaub 2026-10-12 – 2026-10-16 (5 Werktage)" });
+          e.push({ name: "Ilse Modell", datum: "2026-10-12", art: "urlaub", von: "2026-10-12", bis: "2026-10-16", netto: 0, notiz: "Urlaub 2026-10-12 – 2026-10-16 (5 Werktage)" });
           e.push({ name: "Frieda Vorlage", datum: "2026-10-16", art: "krank", von: "2026-10-16", bis: "2026-10-16", netto: 5, notiz: "Krank 2026-10-16 – 2026-10-16 (1 Werktage, AU: Ja)" });
         }
         e.forEach((x, i) => {
           x.zeile = i + 2;
+          if (x.art === "urlaub") { const st = this.urlaubStd[x.name + "|" + x.von]; if (st === undefined) { x.netto = 0; x.stundenOffen = true; } else x.netto = st; return; }
           if (x.art !== "arbeit") return;
           x.nettoGemeldet = x.netto; x.leerzeit = 0;
-          const k = this.korr[[x.name, x.datum, x.beginn, x.ende].join("|")];
-          if (k) { x.leerzeit = k.abzug; x.netto = Math.round((x.nettoGemeldet - k.abzug) * 100) / 100; x.korrektur = { zeit: k.beginnNeu + "–" + k.endeNeu, grund: k.grund, abzug: k.abzug, am: "18.10.2026 (Demo)" }; }
+          const key = [x.name, x.datum, x.beginn, x.ende].join("|"), k = this.korr[key], fa = this.fzAend[key];
+          if (k) { x.leerzeit = k.abzug; x.netto = Math.round((x.nettoGemeldet - k.abzug) * 100) / 100; x.korrektur = { abzugszeit: k.abzugszeit, grund: k.grund, abzug: k.abzug, am: "18.10.2026 (Demo)" }; }
+          if (fa) { fa.alt = fa.alt === undefined ? x.fahrzeug : fa.alt; x.fahrzeugAlt = { alt: fa.alt, grund: fa.grund, am: "18.10.2026 (Demo)" }; x.fahrzeug = fa.neu; }
         });
         const team = this.teamListe();
-        return { mitarbeiter: team.filter((x) => x.aktiv).map((x) => ({ name: x.name, standort: "EU" })), mitarbeiterAlle: team.slice().sort((a, c) => a.name.localeCompare(c.name, "de")), fahrzeuge: fz, eintraege: e };
+        return { mitarbeiter: team.filter((x) => x.aktiv).map((x) => ({ name: x.name, standort: "EU" })), mitarbeiterAlle: team.slice().sort((a, c) => a.name.localeCompare(c.name, "de")), fahrzeuge: fz,
+          fahrzeugListe: fz.map((k, i) => ({ kennzeichen: k, name: ["BTW 1", "BTW 8", "BUS 6", "LMW 4", "TSW 3", "BUS 9", "BTW 9"][i], kategorie: ["BTW", "BTW", "BUS", "LMW", "TSW", "BUS", "BTW"][i] })), eintraege: e };
       }
     };
 
