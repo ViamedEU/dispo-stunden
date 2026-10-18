@@ -120,10 +120,16 @@
     .tag .h { font-weight: 800; color: var(--tinte); white-space: nowrap; }
     .tag .notiz { display: block; color: var(--leise); font-size: 0.78rem; margin-top: 0.15rem; }
     .leer { padding: 2rem 1rem; text-align: center; color: var(--leise); font-size: 0.9rem; }
-    .hinweis { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0.7rem; padding: 0.8rem 1rem; border-top: 1px solid var(--linie); font-size: 0.88rem; align-items: start; cursor: pointer; }
+    .hinweis { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 0.7rem; padding: 0.8rem 1rem; border-top: 1px solid var(--linie); font-size: 0.88rem; align-items: start; cursor: pointer; }
     .hinweis:hover { background: var(--gruen-hell); }
     .hinweis .i { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; font-weight: 900; color: #fff; }
     .hinweis b { color: var(--tinte); }
+    .hinweis.ist-erledigt { opacity: 0.6; }
+    .erl { border: none; border-radius: 12px; height: 36px; padding: 0 0.8rem; font-weight: 800; font-size: 0.78rem; cursor: pointer; white-space: nowrap; color: #fff; background: linear-gradient(135deg, var(--gruen), var(--gruen-2)); }
+    .erl.zurueck { background: var(--feld); color: var(--leise); }
+    details.erledigt-liste > summary { list-style: none; cursor: pointer; padding: 0.8rem 1rem; border-top: 1px solid var(--linie); font-weight: 800; font-size: 0.82rem; color: var(--leise); }
+    details.erledigt-liste > summary::-webkit-details-marker { display: none; }
+    @media (max-width: 520px) { .hinweis { grid-template-columns: 30px minmax(0, 1fr); } .hinweis .erl { grid-column: 2; justify-self: start; } }
     .laden { position: fixed; inset: 0; background: rgba(238,245,240,0.6); display: grid; place-items: center; z-index: 40; }
     .spinner { width: 46px; height: 46px; border-radius: 50%; border: 5px solid #d6e6da; border-top-color: var(--gruen); animation: dreh 0.8s linear infinite; }
     @keyframes dreh { to { transform: rotate(360deg); } }
@@ -258,13 +264,13 @@
           // Doppelt = gleiche Person, gleicher Tag, genau gleiche Zeit. Mehrere Fahrten nacheinander am selben Tag sind normal.
           if (gesehen.has(schluessel)) { x.doppelt = true; x.flags.push("doppelt"); const g = norm(e.name) + "|" + e.datum; (doppelte[g] = doppelte[g] || { p, datum: e.datum, zeiten: [] }).zeiten.push(e.beginn + "–" + e.ende); }
           else { gesehen.add(schluessel); p.summe += e.netto; }
-          if (e.fahrzeug && !fzg.has(normKz(e.fahrzeug)) && !x.doppelt) { x.flags.push("fahrzeug"); hinweise.push({ p, datum: e.datum, typ: "fahrzeug", text: "<b>" + esc(p.name) + "</b> – " + kurz(e.datum) + ": Fahrzeug „" + esc(e.fahrzeug) + "“ steht nicht in der Fuhrpark-Liste." }); }
+          if (e.fahrzeug && !fzg.has(normKz(e.fahrzeug)) && !x.doppelt) { x.flags.push("fahrzeug"); hinweise.push({ p, datum: e.datum, typ: "fahrzeug", detail: normKz(e.fahrzeug), text: "<b>" + esc(p.name) + "</b> – " + kurz(e.datum) + ": Fahrzeug „" + esc(e.fahrzeug) + "“ steht nicht in der Fuhrpark-Liste." }); }
           tagEintrag(p, e.datum).push(x);
         } else {
           const alle = tageZwischen(e.von, e.bis).filter(werktag);
           const proTag = alle.length ? e.netto / alle.length : 0;
           alle.filter((t) => t >= anfang && t <= ende).forEach((t) => { tagEintrag(p, t).push({ art: e.art, netto: proTag, notiz: e.notiz, flags: [], quelle: e, stundenOffen: !!e.stundenOffen }); p.summe += proTag; });
-          if (e.stundenOffen) hinweise.push({ p, typ: "urlaub", text: "<b>" + esc(p.name) + "</b> – Urlaub " + kurz(e.von) + " – " + kurz(e.bis) + ": Stunden fehlen noch (beim Mitarbeiter auf „Stunden eintragen“)." });
+          if (e.stundenOffen) hinweise.push({ p, datum: e.von, typ: "urlaub", text: "<b>" + esc(p.name) + "</b> – Urlaub " + kurz(e.von) + " – " + kurz(e.bis) + ": Stunden fehlen noch (beim Mitarbeiter auf „Stunden eintragen“)." });
         }
       });
       // Doppelt abgeschickt: ein Hinweis pro Person und Tag
@@ -277,7 +283,7 @@
         for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j++) {
           if (minuten(a[i].beginn) < minuten(a[j].ende) && minuten(a[j].beginn) < minuten(a[i].ende)) {
             a[i].flags.push("ueberschneidung"); a[j].flags.push("ueberschneidung");
-            hinweise.push({ p, datum: t, typ: "ueberschneidung", text: "<b>" + esc(p.name) + "</b> – " + kurz(t) + ": " + esc(a[i].beginn + "–" + a[i].ende) + " und " + esc(a[j].beginn + "–" + a[j].ende) + " überschneiden sich." });
+            hinweise.push({ p, datum: t, typ: "ueberschneidung", detail: a[i].beginn + "-" + a[i].ende + "/" + a[j].beginn + "-" + a[j].ende, text: "<b>" + esc(p.name) + "</b> – " + kurz(t) + ": " + esc(a[i].beginn + "–" + a[i].ende) + " und " + esc(a[j].beginn + "–" + a[j].ende) + " überschneiden sich." });
           }
         }
       }));
@@ -288,10 +294,13 @@
         if (!p.inListe) return;
         const tage = Object.keys(p.tage).sort(); if (!tage.length) return;
         const offen = tageZwischen(tage[tage.length - 1], daten.heute).slice(1).filter((t) => werktag(t) && t < daten.heute);
-        if (offen.length >= 3) hinweise.push({ p, typ: "luecke", text: "<b>" + esc(p.name) + "</b> – seit " + kurz(tage[tage.length - 1]) + " nichts mehr eingetragen (" + offen.length + " Werktage)." });
+        if (offen.length >= 3) hinweise.push({ p, typ: "luecke", datum: tage[tage.length - 1], text: "<b>" + esc(p.name) + "</b> – seit " + kurz(tage[tage.length - 1]) + " nichts mehr eingetragen (" + offen.length + " Werktage)." });
       });
+      // Abgearbeitete Hinweise: Schlüssel bleibt gleich, solange sich der Sachverhalt nicht ändert (Reiter "Hinweise erledigt")
+      const erledigt = new Set(daten.erledigt || []);
+      hinweise.forEach((h) => { h.key = [h.typ, norm(h.p.name), h.datum || "", h.detail || ""].join("|"); h.erledigt = erledigt.has(h.key); });
       personen = [...liste.values()];
-      personen.forEach((p) => { p.flags = hinweise.filter((h) => h.p === p).length; });
+      personen.forEach((p) => { p.flags = hinweise.filter((h) => h.p === p && !h.erledigt).length; });
       if (gewaehlt) gewaehlt = personen.find((p) => norm(p.name) === norm(gewaehlt.name)) || null;
     }
 
@@ -311,7 +320,7 @@
         '<div class="kachel"><small>Mitarbeiter</small><strong>' + mitEintrag.length + "</strong> <span>mit Einträgen</span></div>" +
         '<div class="kachel"><small>Heute eingetragen</small><strong>' + (laufend ? heuteDa.length : "–") + "</strong> <span>" + (laufend ? kurz(heute) : "nur im lfd. Monat") + "</span></div>" +
         '<div class="kachel"><small>Urlaub / Krank heute</small><strong>' + (laufend ? abwesend.length : "–") + "</strong> <span>Mitarbeiter</span></div>";
-      const anzahl = hinweise.filter((h) => l.includes(h.p)).length;
+      const anzahl = hinweise.filter((h) => l.includes(h.p) && !h.erledigt).length;
       $("z-hinweise").textContent = anzahl; $("z-hinweise").classList.toggle("null", !anzahl);
       links(l, heute, laufend); rechts();
       $("stand").textContent = (DEMO ? "DEMO – erfundene Daten · " : "") + "Stand " + new Date(daten.stand).toLocaleString("de-DE");
@@ -343,8 +352,12 @@
       } else if (ansicht === "team") {
         teamAnsicht(); return;
       } else {
-        const h = hinweise.filter((x) => l.includes(x.p));
-        $("links").innerHTML = "<h2>Hinweise <small>zum Klären</small></h2>" + (h.length ? h.map((x) => '<div class="hinweis" data-n="' + esc(x.p.name) + '"><span class="i" style="background:' + ICON[x.typ][1] + '">' + ICON[x.typ][0] + "</span><div>" + x.text + "</div></div>").join("") : '<div class="leer">Keine Hinweise. 👍</div>');
+        const h = hinweise.filter((x) => l.includes(x.p)), offen = h.filter((x) => !x.erledigt), fertig = h.filter((x) => x.erledigt);
+        const hz = (x) => '<div class="hinweis' + (x.erledigt ? " ist-erledigt" : "") + '" data-n="' + esc(x.p.name) + '"><span class="i" style="background:' + ICON[x.typ][1] + '">' + ICON[x.typ][0] + "</span><div>" + x.text + "</div>" +
+          '<button type="button" class="erl' + (x.erledigt ? " zurueck" : "") + '" data-erl="' + hinweise.indexOf(x) + '">' + (x.erledigt ? "Zurückholen" : "✓ Erledigt") + "</button></div>";
+        $("links").innerHTML = "<h2>Hinweise <small>zum Klären</small></h2>" + (offen.length ? offen.map(hz).join("") : '<div class="leer">Keine offenen Hinweise. 👍</div>') +
+          (fertig.length ? '<details class="erledigt-liste"><summary>Erledigt (' + fertig.length + ")</summary>" + fertig.map(hz).join("") + "</details>" : "");
+        document.querySelectorAll("#links [data-erl]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); const x = hinweise[+b.dataset.erl]; hinweisErledigen(x, !x.erledigt); }));
       }
       bindeKlicks();
     }
@@ -387,6 +400,17 @@
         auswerten(); zeichne();
         toast(op === "entfernen" ? name + " entfernt" : name + " ist in der Liste");
       } else if (r.status === "pin" || r.status === "gesperrt") { toast(r.message, true); $("abmelden").click(); }
+      else toast(r.message || "Fehler.", true);
+    }
+    async function hinweisErledigen(h, an) {
+      const d = document.createElement("div"); d.innerHTML = h.text;
+      $("laden").hidden = false;
+      let r;
+      try { r = await apiPost({ aktion: "hinweis", bereich: "stunden", op: an ? "erledigt" : "zurueck", pin: speicherS("az_dispo_pin"), schluessel: h.key, text: d.textContent }); }
+      catch (e) { r = { status: "error", message: "Keine Verbindung – nichts geändert." }; }
+      $("laden").hidden = true;
+      if (r.status === "ok") { daten.erledigt = r.erledigt; auswerten(); zeichne(); toast(an ? "Hinweis erledigt" : "Hinweis wieder offen"); }
+      else if (r.status === "pin" || r.status === "gesperrt") { toast(r.message, true); $("abmelden").click(); }
       else toast(r.message || "Fehler.", true);
     }
     function toast(text, fehler) {
@@ -577,6 +601,10 @@
             this.fzAend[key] = { alt: this.fzAend[key] ? this.fzAend[key].alt : b.altFz, neu: b.fahrzeug, grund: b.grund || "Fahrzeug korrigiert" };
             return ok({ status: "ok", alt: alt, neu: b.fahrzeug });
           }
+          if (b.aktion === "hinweis") {
+            this.erledigt = this.erledigt.filter((k) => k !== b.schluessel); if (b.op !== "zurueck") this.erledigt.push(b.schluessel);
+            return ok({ status: "ok", erledigt: this.erledigt.slice() });
+          }
           if (b.aktion === "urlaubstunden") {
             this.urlaubStd[b.name + "|" + b.von] = b.stunden === "" ? undefined : Number(String(b.stunden).replace(",", "."));
             return ok({ status: "ok", stunden: b.stunden === "" ? "" : Number(String(b.stunden).replace(",", ".")) });
@@ -591,7 +619,7 @@
         }, 500));
       },
       team: null,
-      korr: {}, fzAend: {}, urlaubStd: {},
+      korr: {}, fzAend: {}, urlaubStd: {}, erledigt: [],
       teamListe() {
         if (!this.team) this.team = ["Anna Beispiel", "Berta Probe", "Carl Muster", "Dana Test", "Emil Entwurf", "Frieda Vorlage", "Gustav Platzhalter", "Hanna Skizze", "Ilse Modell", "Jonas Prototyp", "Karla Schablone", "Lukas Attrappe", "Mia Fiktiv", "Noah Annahme"]
           .map((n, i) => ({ name: n, aktiv: true, datev: String(100 + i * 7) })).concat([{ name: "Otto Ehemalig", aktiv: false, datev: "42" }]);
@@ -633,7 +661,7 @@
         });
         const team = this.teamListe();
         return { mitarbeiter: team.filter((x) => x.aktiv).map((x) => ({ name: x.name, standort: "EU" })), mitarbeiterAlle: team.slice().sort((a, c) => a.name.localeCompare(c.name, "de")), fahrzeuge: fz,
-          fahrzeugListe: fz.map((k, i) => ({ kennzeichen: k, name: ["BTW 1", "BTW 8", "BUS 6", "LMW 4", "TSW 3", "BUS 9", "BTW 9"][i], kategorie: ["BTW", "BTW", "BUS", "LMW", "TSW", "BUS", "BTW"][i] })), eintraege: e };
+          fahrzeugListe: fz.map((k, i) => ({ kennzeichen: k, name: ["BTW 1", "BTW 8", "BUS 6", "LMW 4", "TSW 3", "BUS 9", "BTW 9"][i], kategorie: ["BTW", "BTW", "BUS", "LMW", "TSW", "BUS", "BTW"][i] })), eintraege: e, erledigt: this.erledigt.slice() };
       }
     };
 
