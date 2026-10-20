@@ -138,6 +138,9 @@
     .uplan .z.urlaub { background: #7cc4ef; } .uplan .z.krank { background: #f5a3b5; } .uplan .z.beantragt { background: #f6d58c; }
     .uplan .rest { text-align: right; font-weight: 800; color: var(--tinte); font-size: 0.78rem; } .uplan .rest.minus { color: var(--rose); }
     .uplan .fehlt { text-align: center; font-weight: 800; color: var(--leise); } .uplan .fehlt.viel { color: var(--rose); }
+    .uplan .z.klick { cursor: pointer; } .uplan .z.klick:hover { outline: 2px solid #1d4ed8; }
+    .plan-monat { font: inherit; font-weight: 800; color: var(--tinte); border: 2px solid var(--linie); border-radius: 10px; padding: 0.15rem 0.4rem; background: var(--feld); cursor: pointer; }
+    .uplan-box + .korr { margin: 0 1rem 1rem; }
     #links .korr { margin: 0.2rem 1rem 0.8rem; } .detail-kopf .tag-aktion { margin-top: 0.3rem; } .pill.nb { white-space: nowrap; }
     @media (max-width: 520px) { .konto-reihe { grid-template-columns: 1fr 1fr; } .konto-kopf { flex-wrap: wrap; }
       .tag { grid-template-columns: 64px minmax(0, 1fr) auto; } .tag-knoepfe { grid-column: 2 / -1; justify-content: flex-start; } .tag > div:empty { display: none; } }
@@ -643,7 +646,7 @@
       document.querySelectorAll("#rechts .korr").forEach((f) => f.remove());
       const f = document.createElement("div");
       f.className = "korr"; f.innerHTML = html;
-      knopf.closest(".tag, .konto, .detail-kopf").after(f);
+      knopf.closest(".tag, .konto, .detail-kopf, .uplan-box").after(f);
       f.querySelector(".neben").addEventListener("click", () => f.remove());
       return f;
     }
@@ -827,11 +830,20 @@
       const txtStatus = { genehmigt: "genehmigt", abgelehnt: "abgelehnt", "zurückgezogen": "zurückgezogen" };
       $("links").innerHTML = "<h2>Offene Urlaubsanträge <small>" + (offen.length ? offen.length + " warten auf Entscheidung" : "aus der Zeiterfassung der Mitarbeiter") + "</small></h2>" +
         (offen.length ? offen.map(antragKarte).join("") : '<div class="leer">Keine offenen Anträge. 👍</div>') +
-        '<h2 style="border-top:1px solid var(--linie)">Urlaubsplan ' + esc(monatText(monat)) + ' <small><button type="button" class="link-plus" id="plan-alle">' + (planAlle ? "Nur Mitarbeiter mit Abwesenheit" : "Alle Mitarbeiter zeigen") + "</button></small></h2>" + monatsplan() +
+        '<h2 style="border-top:1px solid var(--linie)"><span>Urlaubsplan <select id="plan-monat" class="plan-monat" aria-label="Monat wählen">' + monatsOptionen() + '</select></span><small><button type="button" class="link-plus" id="plan-neu">+ Urlaub eintragen</button> · <button type="button" class="link-plus" id="plan-alle">' + (planAlle ? "Nur Mitarbeiter mit Abwesenheit" : "Alle Mitarbeiter zeigen") + "</button></small></h2>" + monatsplan() +
         (fertig.length ? '<details class="erledigt-liste"><summary>Entschiedene Anträge (' + fertig.length + ")</summary>" + fertig.map((a) =>
           '<div class="hinweis ist-erledigt"><span class="i" style="background:' + (a.status === "genehmigt" ? "#0284c7" : "#94a3b8") + '">' + (a.status === "genehmigt" ? "✓" : "–") + "</span><div><b>" + esc(a.name) + "</b> – " + kurz(a.von) + " – " + kurz(a.bis) + " (" + a.tage + " Tage): " + (txtStatus[a.status] || a.status) +
           (a.entschieden ? " am " + esc(a.entschieden.slice(0, 10)) : "") + (a.antwort ? " · „" + esc(a.antwort) + "“" : "") + "</div></div>").join("") + "</details>" : "");
       $("plan-alle").addEventListener("click", () => { planAlle = !planAlle; zeichne(); });
+      $("plan-monat").addEventListener("change", (e) => monatWahl(e.target.value));
+      $("plan-neu").addEventListener("click", (e) => planEintragen(document.querySelector("#links .uplan-box") || e.target, {}));
+      // Kästchen im Plan: leer = eintragen, Urlaub/Krank = Stunden an diesem Tag, offener Antrag = zur Karte
+      document.querySelectorAll("#links .uplan [data-pt]").forEach((c) => c.addEventListener("click", () => {
+        const name = c.dataset.pn, t = c.dataset.pt, art = c.dataset.art;
+        if (art === "beantragt") { const k = [...document.querySelectorAll("#links .antrag")].find((a) => { const x = (daten.antraege || []).find((y) => y.id === a.dataset.id); return x && norm(x.name) === norm(name); }); if (k) k.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+        if (art) { const p = personen.find((q) => norm(q.name) === norm(name)), x = p && (p.tage[t] || []).find((y) => y.art === art && !y.doppelt && y.quelle && y.quelle.zeile); if (x) tagFormular(c, x); return; }
+        planEintragen(c, { name: name, tag: t });
+      }));
       document.querySelectorAll("#links .uplan [data-n]").forEach((z) => z.addEventListener("click", () => { gewaehlt = personen.find((p) => p.name === z.dataset.n) || null; reiterWahl("monat"); }));
       document.querySelectorAll("#links .antrag").forEach(antragBinden);
     }
@@ -874,14 +886,17 @@
       (daten.antraege || []).filter((a) => a.status === "beantragt" && !(a.von > letzter || a.bis < erster)).forEach((a) => add(a.name, "beantragt", a.von, a.bis));
       const team = (daten.mitarbeiterAlle || []).filter((m) => m.aktiv);
       const zeilen = (planAlle ? team.map((m) => pro.get(norm(m.name)) || { name: m.name, tage: {} }) : [...pro.values()]).sort((a, b) => a.name.localeCompare(b.name, "de"));
-      if (!zeilen.length) return '<div class="leer">In diesem Monat ist niemand im Urlaub oder krank.</div>';
+      if (!zeilen.length) return '<div class="uplan-box"><div class="leer">In diesem Monat ist niemand im Urlaub oder krank. Über „+ Urlaub eintragen“ kannst du Urlaub planen.</div></div>';
       const beantragtJahr = (n) => (daten.antraege || []).filter((a) => a.status === "beantragt" && norm(a.name) === n && a.von.slice(0, 4) === jahr).reduce((s2, a) => s2 + a.tage, 0);
       const rest = (name) => { const m = team.find((x) => norm(x.name) === norm(name)); if (!m || m.urlaubJahr == null) return null; return m.urlaubJahr + (m.uebertrag || 0) - ((daten.urlaubstage || {})[norm(name)] || 0) - beantragtJahr(norm(name)); };
       const spalten = "grid-template-columns: 150px repeat(" + tage.length + ", minmax(14px, 1fr)) 64px";
       let h = '<div class="uplan" style="' + spalten + '"><div></div>' + tage.map((t) => '<div class="kopfz">' + alsDatum(t).getDate() + "<br>" + alsDatum(t).toLocaleDateString("de-DE", { weekday: "narrow" }) + "</div>").join("") + '<div class="kopfz">Rest ' + jahr + "</div>";
       zeilen.forEach((z) => {
         const r2 = rest(z.name);
-        h += '<div class="n" data-n="' + esc(z.name) + '">' + esc(z.name) + "</div>" + tage.map((t) => '<div class="z' + (!werktag(t) ? " we" : z.tage[t] ? " " + z.tage[t] : "") + '" title="' + esc(kurz(t) + (feiertag(t) ? " · " + feiertag(t) : "") + (z.tage[t] ? " · " + (z.tage[t] === "beantragt" ? "Antrag offen" : z.tage[t]) : "")) + '"></div>').join("") +
+        const klick = backendAb("2.6") && team.some((m) => norm(m.name) === norm(z.name));
+        h += '<div class="n" data-n="' + esc(z.name) + '">' + esc(z.name) + "</div>" + tage.map((t) => !werktag(t) ? '<div class="z we" title="' + esc(kurz(t) + (feiertag(t) ? " · " + feiertag(t) : "")) + '"></div>' :
+          '<div class="z' + (z.tage[t] ? " " + z.tage[t] : "") + (klick ? " klick" : "") + '"' + (klick ? ' data-pn="' + esc(z.name) + '" data-pt="' + t + '" data-art="' + (z.tage[t] || "") + '"' : "") +
+          ' title="' + esc(kurz(t) + (z.tage[t] ? " · " + (z.tage[t] === "beantragt" ? "Antrag offen" : z.tage[t] + " – klicken: Stunden an diesem Tag") : klick ? " · klicken: Urlaub eintragen" : "")) + '"></div>').join("") +
           '<div class="rest' + (r2 != null && r2 < 0 ? " minus" : "") + '">' + (r2 == null ? "–" : zahlText(r2)) + "</div>";
       });
       h += '<div class="n" style="cursor:default;color:var(--leise)">Es fehlen</div>' + tage.map((t) => {
@@ -890,6 +905,47 @@
         return '<div class="fehlt' + (n >= WARN_AB ? " viel" : "") + '">' + (n || "") + "</div>";
       }).join("") + "<div></div></div>";
       return '<div class="uplan-box">' + h + '<div style="font-size:.72rem;color:var(--leise);margin-top:.5rem"><span class="kc u" style="display:inline-block;width:auto">Urlaub</span> <span class="kc k" style="display:inline-block;width:auto">Krank</span> <span class="kc b" style="display:inline-block;width:auto">Antrag offen</span> · Rest = Anspruch + Übertrag − genommen − beantragt (Werktage ohne Feiertage)</div></div>';
+    }
+
+    // Monat direkt wählen (Urlaubsplanung, z. B. Sommerferien): 12 Monate zurück bis 12 Monate voraus
+    function monatsOptionen() {
+      const h = daten.heute.slice(0, 7);
+      let o = "";
+      for (let n = -12; n <= 12; n++) { const m = monatPlus(h, n); o += '<option value="' + m + '"' + (m === monat ? " selected" : "") + ">" + esc(monatText(m)) + "</option>"; }
+      return o;
+    }
+    async function monatWahl(m) {
+      const alt = monat; monat = m;
+      const r = await lade(speicherS("az_dispo_pin"));
+      if (r.status !== "ok") { monat = alt; if (r.status === "pin" || r.status === "gesperrt") $("abmelden").click(); else toast(r.message || "Fehler beim Laden.", true); zeichne(); }
+    }
+    // Urlaub/Krank für einen Mitarbeiter eintragen (wenn er es nicht selbst beantragt), Urlaub bekommt die Ø-Stunden
+    function planEintragen(knopf, vor) {
+      const team = (daten.mitarbeiterAlle || []).filter((m) => m.aktiv);
+      const f = formularOeffnen(knopf, '<div class="korr-kopf">Urlaub oder Krank für einen Mitarbeiter eintragen, z. B. Sommerferien, wenn er es nicht selbst in der App beantragt. Urlaub bekommt gleich die Stunden aus dem Durchschnitt und steht beim Mitarbeiter als genehmigt.</div>' +
+        '<div class="korr-zeile fahrzeug-zeile"><label>Mitarbeiter<select class="p-wer"><option value="">– bitte wählen –</option>' + team.map((m) => '<option value="' + esc(m.name) + '"' + (m.name === vor.name ? " selected" : "") + ">" + esc(m.name) + "</option>").join("") + "</select></label>" +
+        '<label>Art<select class="p-art"><option value="urlaub">Urlaub</option><option value="krank">Krank</option></select></label></div>' +
+        '<div class="korr-zeile" style="margin-top:.5rem;grid-template-columns:165px 165px minmax(0,1fr)"><label>Von<input type="date" class="p-von" value="' + esc(vor.tag || "") + '" /></label><label>Bis<input type="date" class="p-bis" value="' + esc(vor.tag || "") + '" /></label>' +
+        '<label class="grund">Grund <span style="font-weight:500">(optional)</span><input type="text" class="p-g" placeholder="z. B. Sommerferien" /></label></div>' +
+        '<div class="korr-vorschau"></div><div class="korr-knoepfe"><button type="button" class="speichern">Eintragen</button><button type="button" class="neben">Abbrechen</button></div>');
+      const $f = (c) => f.querySelector(c), vs = $f(".korr-vorschau");
+      const vorschau = () => { const v = $f(".p-von").value, b = $f(".p-bis").value; if (v && b && b < v) $f(".p-bis").value = v;
+        const n = v ? tageZwischen(v, $f(".p-bis").value || v).filter(werktag).length : 0; vs.textContent = v ? n + (n === 1 ? " Werktag" : " Werktage") + " (ohne Wochenende und Feiertage)" : ""; };
+      f.querySelectorAll("input").forEach((i) => i.addEventListener("input", vorschau)); vorschau();
+      $f(".speichern").addEventListener("click", async () => {
+        const name = $f(".p-wer").value, v = $f(".p-von").value, b = $f(".p-bis").value || v;
+        if (!name) { toast("Bitte einen Mitarbeiter wählen.", true); $f(".p-wer").focus(); return; }
+        if (!v) { toast("Bitte Von und Bis angeben.", true); $f(".p-von").focus(); return; }
+        $("laden").hidden = false;
+        let r;
+        try { r = await apiPost({ aktion: "nachtragen", pin: speicherS("az_dispo_pin"), name: name, typ: $f(".p-art").value, von: v, bis: b, grund: $f(".p-g").value.trim() || "Urlaubsplanung" }); }
+        catch (err) { r = { status: "error", message: "Keine Verbindung – nichts gespeichert." }; }
+        $("laden").hidden = true;
+        if (r.status === "ok") { toast(($f(".p-art").value === "urlaub" ? "Urlaub" : "Krank") + " eingetragen: " + name + ", " + kurz(v) + " – " + kurz(b) + " (" + r.tage + " Tage" + (r.netto ? ", " + std(r.netto) + " Std." : "") + ")"); await lade(speicherS("az_dispo_pin")); }
+        else if (r.status === "pin" || r.status === "gesperrt") { toast(r.message, true); $("abmelden").click(); }
+        else toast(r.status === "doppelt" ? r.message || "Für diesen Zeitraum ist schon etwas eingetragen." : r.message || "Fehler.", true);
+      });
+      (vor.name ? $f(".p-von") : $f(".p-wer")).focus();
     }
 
     // Urlaub/Krank verschieben: Stunden je Tag bleiben, die Summe passt sich den neuen Tagen an
@@ -919,8 +975,9 @@
       const f = formularOeffnen(knopf, '<div class="korr-kopf">' + art + " am <b>" + kurz(x.tag) + "</b> (Zeitraum " + kurz(q.von) + " – " + kurz(q.bis) + "). Stunden an diesem Tag:</div>" +
         '<div class="ds-box"></div>' +
         '<div class="korr-zeile fahrzeug-zeile"><label>Stunden<input type="number" class="k-std" min="0" max="24" step="0.25" inputmode="decimal" value="' + (x.stundenOffen ? "" : rund(x.netto)) + '" /></label><div class="hinweis-klein">Die anderen Tage bleiben, wie sie sind.</div></div>' +
-        '<div class="korr-knoepfe"><button type="button" class="speichern">Tag speichern</button><button type="button" class="neben">Abbrechen</button></div>');
+        '<div class="korr-knoepfe"><button type="button" class="speichern">Tag speichern</button><button type="button" class="neben">Abbrechen</button>' + (backendAb("2.7") ? '<button type="button" class="neben zr-wechsel">Zeitraum ändern</button>' : "") + "</div>");
       const inp = f.querySelector(".k-std"), box = f.querySelector(".ds-box");
+      const zw = f.querySelector(".zr-wechsel"); if (zw) zw.addEventListener("click", () => zeitraumFormular(knopf, x));
       apiPost({ aktion: "durchschnitt", pin: speicherS("az_dispo_pin"), name: q.name, von: q.von, bis: q.bis, art: x.art }).then((r) => {
         if (!box.isConnected || r.status !== "ok" || !r.werktage) return;
         box.innerHTML = "Ø letzte 13 Wochen: <b>" + std(r.proTag) + " Std./Tag</b>" + (r.gedeckelt ? " (höchstens " + r.max + ")" : "") + '<button type="button" class="link-plus ds-nehmen">Übernehmen</button>';
@@ -1065,7 +1122,7 @@
             return ok({ status: "ok", datum: tag, beginn: b.neuBeginn, ende: b.neuEnde, netto: nettoAus(b.neuBeginn, b.neuEnde), nettoAlt: nettoAus(b.beginn, b.ende) });
           }
           if (b.aktion === "durchschnitt") {
-            const tag = 86400000, fBis = isoVon(new Date(alsDatum(b.von).getTime() - tag)), fVon = isoVon(new Date(alsDatum(b.von).getTime() - 91 * tag));
+            const tag = 86400000, vorBeginn = isoVon(new Date(alsDatum(b.von).getTime() - tag)), fBis = vorBeginn < "2026-10-15" ? vorBeginn : "2026-10-15", fVon = isoVon(new Date(alsDatum(fBis).getTime() - 90 * tag));
             const abw = new Set(), gesehen = new Set(); let st = 0;
             new Set(tageZwischen(fVon, fBis).map((t) => t.slice(0, 7))).forEach((mm) => this.daten(mm).eintraege.forEach((x) => {
               if (norm(x.name) !== norm(b.name)) return;
@@ -1121,8 +1178,9 @@
           if (b.aktion === "nachtragen") {
             if (!String(b.grund || "").trim()) return ok({ status: "error", message: "Bitte einen Grund angeben." });
             if (b.typ === "arbeitszeit") this.extra.push({ name: b.name, datum: b.datum, art: "arbeit", beginn: b.beginn, ende: b.ende, fahrzeug: b.fahrzeug, netto: nettoAus(b.beginn, b.ende), notiz: "Dispo: " + b.grund });
-            else this.extra.push({ name: b.name, datum: b.von, art: b.typ, von: b.von, bis: b.bis || b.von, netto: b.typ === "krank" ? 5 * tageZwischen(b.von, b.bis || b.von).filter(werktag).length : 0, notiz: (b.typ === "urlaub" ? "Urlaub " : "Krank ") + b.von + " – " + (b.bis || b.von) + " · Dispo: " + b.grund });
-            return ok({ status: "ok" });
+            else this.extra.push({ name: b.name, datum: b.von, art: b.typ, von: b.von, bis: b.bis || b.von, netto: (b.typ === "krank" ? 5 : 7.5) * tageZwischen(b.von, b.bis || b.von).filter(werktag).length, notiz: (b.typ === "urlaub" ? "Urlaub " : "Krank ") + b.von + " – " + (b.bis || b.von) + " · Dispo: " + b.grund });
+            const nt = tageZwischen(b.von || b.datum, b.bis || b.von || b.datum).filter(werktag).length;
+            return ok({ status: "ok", tage: nt, netto: b.typ === "urlaub" ? 7.5 * nt : "" });
           }
           if (b.aktion === "hinweis") {
             this.erledigt = this.erledigt.filter((k) => k !== b.schluessel); if (b.op !== "zurueck") this.erledigt.push(b.schluessel);
@@ -1210,7 +1268,8 @@
           e.push({ name: "Karla Schablone", datum: "2026-10-26", art: "urlaub", von: "2026-10-26", bis: "2026-10-28", netto: 24, notiz: "Urlaub 2026-10-26 – 2026-10-28 (3 Werktage)" });
           e.push({ name: "Berta Probe", datum: "2026-10-27", art: "urlaub", von: "2026-10-27", bis: "2026-10-29", netto: 24, notiz: "Urlaub 2026-10-27 – 2026-10-29 (3 Werktage)" });
         }
-        this.extra.filter((x) => (x.von || x.datum).slice(0, 7) === m).forEach((x) => e.push(Object.assign({}, x)));
+        const mEnde = isoVon(new Date(+m.slice(0, 4), +m.slice(5, 7), 0));
+        this.extra.filter((x) => x.art === "arbeit" ? x.datum.slice(0, 7) === m : !(x.von > mEnde || x.bis < m + "-01")).forEach((x) => e.push(Object.assign({}, x)));
         e.forEach((x) => { const z = this.zeitraumAend[x.name + "|" + x.von]; if (x.art !== "arbeit" && z) { const n = tageZwischen(z.von, z.bis).filter(werktag).length; x.netto = rund(x.netto / (tageZwischen(x.von, x.bis).filter(werktag).length || 1) * n); x.datum = z.von; x.von = z.von; x.bis = z.bis; x.notiz = x.notiz.replace(/\d{4}-\d{2}-\d{2} – \d{4}-\d{2}-\d{2} \(\d+ Werktage/, z.von + " – " + z.bis + " (" + n + " Werktage"); } });
         e.forEach((x, i) => {
           x.zeile = i + 2;
