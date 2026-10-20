@@ -108,6 +108,36 @@
     .konto-notiz { margin-top: 0.4rem; font-size: 0.78rem; color: var(--leise); }
     .pill.ok { background: var(--gruen-hell); color: #1f6b2b; }
     .team-knoepfe { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+    .kal { background: #fff; border-radius: 20px; box-shadow: var(--schatten); padding: 0.8rem 1rem 0.9rem; margin-bottom: 1rem; }
+    .kal-kopf { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.5rem; } .kal-kopf b { color: var(--tinte); }
+    .kal-kopf > span { font-size: 0.78rem; color: var(--leise); } .kal-leg { margin-left: auto; display: flex; gap: 0.6rem; align-items: center; }
+    .kal-woche { display: grid; grid-template-columns: 46px repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, 0.45fr)); gap: 4px; margin-top: 4px; }
+    .kal-kw { font-size: 0.7rem; font-weight: 800; color: var(--leise); align-self: center; }
+    .kal-tag { background: var(--feld); border-radius: 10px; padding: 4px 5px; min-height: 52px; min-width: 0; }
+    .kal-tag.we { background: #f7f8f7; } .kal-tag.heute { outline: 2px solid var(--gruen); } .kal-tag.voll { background: var(--gelb-hell); }
+    .kal-d { font-size: 0.7rem; font-weight: 800; color: var(--leise); white-space: nowrap; } .kal-warn { color: var(--gelb); }
+    .kal-ft { font-size: 0.64rem; color: var(--leise); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kc { display: block; width: 100%; border: none; text-align: left; font: inherit; font-size: 0.68rem; font-weight: 700; border-radius: 6px; padding: 1px 5px; margin-top: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kal-leg .kc { display: inline-block; width: 12px; height: 12px; padding: 0; margin: 0 0.15rem 0 0; vertical-align: -2px; cursor: default; }
+    .kc.u { background: var(--blau-hell); color: var(--blau); } .kc.k { background: var(--rose-hell); color: var(--rose); } .kc.b { background: var(--gelb-hell); color: var(--gelb); outline: 1px dashed #d4a017; }
+    .kal-mehr { font-size: 0.66rem; color: var(--leise); }
+    .kal-zeile { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 0.4rem; padding: 0.35rem 0; border-top: 1px solid var(--linie); }
+    .kal-zeile.voll { background: var(--gelb-hell); } .kal-zeile .kc { display: inline-block; width: auto; margin: 0 0.25rem 0.2rem 0; font-size: 0.74rem; }
+    .plan .raster { grid-template-columns: minmax(0, 1fr); } .plan #rechts { display: none; }
+    .antrag { margin: 0.6rem 1rem 0.9rem; padding: 0.8rem 0.9rem; border-radius: 16px; border: 2px solid #f3d38a; background: #fffdf6; }
+    .antrag-kopf { display: flex; align-items: center; gap: 0.6rem; } .antrag-kopf b { color: var(--tinte); font-size: 1rem; } .antrag-kopf small { display: block; color: var(--leise); font-size: 0.74rem; }
+    .antrag-kopf .pill { margin-left: auto; } .antrag-zr { font-weight: 800; color: var(--tinte); margin: 0.4rem 0 0.2rem; }
+    .antrag-info { font-size: 0.82rem; color: var(--text); margin-top: 0.3rem; } .antrag-konf { font-size: 0.8rem; color: var(--gelb); margin-top: 0.3rem; }
+    .antrag .korr-zeile { margin-top: 0.6rem; grid-template-columns: 165px 165px minmax(0, 1fr); }
+    @media (max-width: 700px) { .antrag .korr-zeile { grid-template-columns: 1fr 1fr; } }
+    .uplan-box { overflow-x: auto; padding: 0 1rem 1rem; }
+    .uplan { display: grid; gap: 2px; align-items: center; font-size: 0.7rem; min-width: 720px; }
+    .uplan .n { font-size: 0.8rem; font-weight: 700; color: var(--tinte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; padding-right: 0.4rem; }
+    .uplan .kopfz { text-align: center; color: var(--leise); font-weight: 700; line-height: 1.1; }
+    .uplan .z { height: 18px; border-radius: 3px; background: var(--feld); } .uplan .z.we { background: transparent; }
+    .uplan .z.urlaub { background: #7cc4ef; } .uplan .z.krank { background: #f5a3b5; } .uplan .z.beantragt { background: #f6d58c; }
+    .uplan .rest { text-align: right; font-weight: 800; color: var(--tinte); font-size: 0.78rem; } .uplan .rest.minus { color: var(--rose); }
+    .uplan .fehlt { text-align: center; font-weight: 800; color: var(--leise); } .uplan .fehlt.viel { color: var(--rose); }
     #links .korr { margin: 0.2rem 1rem 0.8rem; } .detail-kopf .tag-aktion { margin-top: 0.3rem; } .pill.nb { white-space: nowrap; }
     @media (max-width: 520px) { .konto-reihe { grid-template-columns: 1fr 1fr; } .konto-kopf { flex-wrap: wrap; }
       .tag { grid-template-columns: 64px minmax(0, 1fr) auto; } .tag-knoepfe { grid-column: 2 / -1; justify-content: flex-start; } .tag > div:empty { display: none; } }
@@ -205,11 +235,13 @@
         <button type="button" class="an" data-ansicht="monat">Monat</button>
         <button type="button" data-ansicht="heute">Heute</button>
         <button type="button" data-ansicht="hinweise">Hinweise <span class="zahl null" id="z-hinweise">0</span></button>
+        <button type="button" data-ansicht="urlaub" id="reiter-urlaub" hidden>Urlaub <span class="zahl null" id="z-antraege">0</span></button>
         <button type="button" data-ansicht="team">Mitarbeiter</button>
       </div>
       <input class="suche" id="suche" type="search" placeholder="Mitarbeiter suchen …" />
     </div>
 
+    <section class="kal" id="kalender" hidden></section>
     <div class="raster">
       <section class="karte" id="links"></section>
       <section class="karte" id="rechts"></section>
@@ -235,7 +267,21 @@
     function kurz(iso) { return alsDatum(iso).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" }); }
     function std(x) { return (Math.round(x * 100) / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     function minuten(hhmm) { const t = String(hhmm || "").split(":"); return +t[0] * 60 + +t[1]; }
-    function werktag(iso) { const t = alsDatum(iso).getDay(); return t !== 0 && t !== 6; }
+    // Feiertage NRW (wie im Backend): zählen nicht als Werktag / Urlaubstag
+    const feiertagCache = {};
+    function feiertageNRW(j) {
+      const a = j % 19, b = Math.floor(j / 100), c = j % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+      const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+      const ostern = new Date(j, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1, 12);
+      const o = (n) => isoVon(new Date(ostern.getTime() + n * 86400000));
+      return { [j + "-01-01"]: "Neujahr", [o(-2)]: "Karfreitag", [o(1)]: "Ostermontag", [j + "-05-01"]: "Tag der Arbeit", [o(39)]: "Christi Himmelfahrt", [o(50)]: "Pfingstmontag",
+               [o(60)]: "Fronleichnam", [j + "-10-03"]: "Tag der Deutschen Einheit", [j + "-11-01"]: "Allerheiligen", [j + "-12-25"]: "1. Weihnachtstag", [j + "-12-26"]: "2. Weihnachtstag" };
+    }
+    function feiertag(iso) { const j = +iso.slice(0, 4); return (feiertagCache[j] = feiertagCache[j] || feiertageNRW(j))[iso] || ""; }
+    function werktag(iso) { const t = alsDatum(iso).getDay(); return t !== 0 && t !== 6 && !feiertag(iso); }
+    function kw(iso) { const d = alsDatum(iso), t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())), w = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - w); return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7); }
+    function kurzName(n) { const t = String(n).split(" ").filter(Boolean); return t.length > 1 ? t[0][0] + ". " + t[t.length - 1] : n; }
+    const WARN_AB = 3;   // ab so vielen Abwesenden an einem Tag: Warnung
     function tageZwischen(von, bis) { const out = []; const d = alsDatum(von), e = alsDatum(bis); while (d <= e) { out.push(isoVon(d)); d.setDate(d.getDate() + 1); } return out; }
     function initialen(n) { const t = n.split(" ").filter(Boolean); return ((t[0] || "?")[0] + (t.length > 1 ? t[t.length - 1][0] : "")).toUpperCase(); }
     function farbe(n) { let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) >>> 0; return FARBEN[h % FARBEN.length]; }
@@ -347,7 +393,7 @@
 
     function zeichne() {
       $("monat-text").textContent = monatText(monat);
-      $("nach").disabled = monat >= daten.heute.slice(0, 7);
+      $("nach").disabled = monat >= (backendAb("2.7") ? monatPlus(daten.heute.slice(0, 7), 12) : daten.heute.slice(0, 7));   // Urlaubsplanung: bis 12 Monate voraus
       const l = sichtbar(), heute = daten.heute, laufend = monat === heute.slice(0, 7);
       const mitEintrag = l.filter((p) => Object.keys(p.tage).length);
       const heuteDa = l.filter((p) => (p.tage[heute] || []).length);
@@ -359,6 +405,11 @@
         '<div class="kachel"><small>Urlaub / Krank heute</small><strong>' + (laufend ? abwesend.length : "–") + "</strong> <span>Mitarbeiter</span></div>";
       const anzahl = hinweise.filter((h) => l.includes(h.p) && !h.erledigt).length;
       $("z-hinweise").textContent = anzahl; $("z-hinweise").classList.toggle("null", !anzahl);
+      const offen = (daten.antraege || []).filter((a) => a.status === "beantragt").length;
+      $("reiter-urlaub").hidden = !backendAb("2.7");
+      $("z-antraege").textContent = offen; $("z-antraege").classList.toggle("null", !offen);
+      $("app").classList.toggle("plan", ansicht === "urlaub");
+      kalenderLeiste();
       links(l, heute, laufend); rechts();
       $("stand").textContent = (DEMO ? "DEMO – erfundene Daten · " : "") + "Stand " + new Date(daten.stand).toLocaleString("de-DE");
     }
@@ -388,6 +439,8 @@
             return zeile(p, std(es.reduce((s, x) => s + (x.doppelt ? 0 : x.netto), 0)) + "<small>Std.</small>", a.map((x) => '<span class="pill">' + esc(x.beginn + "–" + x.ende) + "</span>" + (x.fahrzeug ? '<span class="pill">' + esc(x.fahrzeug) + "</span>" : "")).join("") + (es.some((x) => x.art === "urlaub") ? '<span class="pill u">Urlaub</span>' : "") + (es.some((x) => x.art === "krank") ? '<span class="pill k">Krank</span>' : "")); }).join("") : '<div class="leer">Heute hat noch niemand eingetragen.</div>') +
           '<h2 style="border-top:1px solid var(--linie)">Noch nichts eingetragen <small>in den letzten 7 Tagen im Einsatz</small></h2>' +
           (fehlt.length ? fehlt.map((p) => zeile(p, '<span style="color:var(--leise)">–</span>', '<span class="pill">zuletzt ' + kurz(Object.keys(p.tage).sort().pop()) + "</span>")).join("") : '<div class="leer">Alle haben eingetragen.</div>');
+      } else if (ansicht === "urlaub") {
+        urlaubAnsicht(); return;
       } else if (ansicht === "team") {
         teamAnsicht(); return;
       } else {
@@ -402,7 +455,7 @@
     }
     // ---------- Mitarbeiter pflegen ----------
     function teamZeile(m, knopf) {
-      return '<div class="zeile team"><div class="ava" style="background:' + (m.aktiv ? farbe(m.name) : "#94a3b8") + '">' + esc(initialen(m.name)) + '</div><div><div class="name">' + esc(m.name) + '</div><div class="meta">' + (m.datev ? '<span class="pill">DATEV ' + esc(m.datev) + "</span>" : "") + "</div></div><div>" + knopf + "</div></div>";
+      return '<div class="zeile team"><div class="ava" style="background:' + (m.aktiv ? farbe(m.name) : "#94a3b8") + '">' + esc(initialen(m.name)) + '</div><div><div class="name">' + esc(m.name) + '</div><div class="meta">' + (m.datev ? '<span class="pill">DATEV ' + esc(m.datev) + "</span>" : "") + (m.urlaubJahr != null ? '<span class="pill u">Urlaub ' + zahlText(m.urlaubJahr + (m.uebertrag || 0)) + " Tage</span>" : "") + "</div></div><div>" + knopf + "</div></div>";
     }
     function teamAnsicht() {
       const alle = daten.mitarbeiterAlle || daten.mitarbeiter.map((m) => ({ name: m.name, aktiv: true, datev: "" }));
@@ -410,7 +463,8 @@
       const aktiv = alle.filter((m) => m.aktiv && passt(m)), weg = alle.filter((m) => !m.aktiv && passt(m));
       $("links").innerHTML = "<h2>Mitarbeiter <small>" + alle.filter((m) => m.aktiv).length + " aktiv · stehen in der Zeiterfassung zur Auswahl</small></h2>" +
         '<form class="team-form" id="team-form" autocomplete="off"><input id="neu-name" placeholder="Vor- und Nachname" aria-label="Name neuer Mitarbeiter" /><input id="neu-datev" placeholder="DATEV-Nr." inputmode="numeric" aria-label="DATEV-Nummer (optional)" /><button class="knopf-klein gruen" type="submit">+ Hinzufügen</button></form>' +
-        (aktiv.length ? aktiv.map((m) => teamZeile(m, '<div class="team-knoepfe">' + (backendNeu() ? '<button type="button" class="knopf-klein zurueck" data-op="umbenennen" data-name="' + esc(m.name) + '">Umbenennen</button>' : "") +
+        (aktiv.length ? aktiv.map((m) => teamZeile(m, '<div class="team-knoepfe">' + (backendAb("2.7") ? '<button type="button" class="knopf-klein zurueck" data-op="anspruch" data-name="' + esc(m.name) + '">Urlaub</button>' : "") +
+          (backendNeu() ? '<button type="button" class="knopf-klein zurueck" data-op="umbenennen" data-name="' + esc(m.name) + '">Umbenennen</button>' : "") +
           '<button type="button" class="knopf-klein weg" data-op="entfernen" data-name="' + esc(m.name) + '">Entfernen</button></div>')).join("") : '<div class="leer">Kein Treffer.</div>') +
         (weg.length ? '<h2 style="border-top:1px solid var(--linie)">Ausgeschieden <small>' + weg.length + "</small></h2>" + weg.map((m) => teamZeile(m, '<button type="button" class="knopf-klein zurueck" data-op="hinzufuegen" data-name="' + esc(m.name) + '">Wieder aufnehmen</button>')).join("") : "");
       $("team-form").addEventListener("submit", (ev) => {
@@ -421,6 +475,7 @@
       });
       document.querySelectorAll("#links [data-op]").forEach((b) => b.addEventListener("click", () => {
         if (b.dataset.op === "umbenennen") { umbenennenFormular(b, b.dataset.name); return; }
+        if (b.dataset.op === "anspruch") { anspruchFormular(b, b.dataset.name); return; }
         if (b.dataset.op === "entfernen" && !b.classList.contains("sicher")) {   // zweiter Klick bestätigt
           b.classList.add("sicher"); b.textContent = "Wirklich entfernen?";
           setTimeout(() => { if (b.isConnected) { b.classList.remove("sicher"); b.textContent = "Entfernen"; } }, 6000);
@@ -448,10 +503,25 @@
       });
       inp.focus(); inp.select();
     }
-    async function mitarbeiterAktion(op, name, datev, neu) {
+    // Urlaubsanspruch je Jahr + Übertrag aus dem Vorjahr (für den Resturlaub in App und Urlaubsplan)
+    function anspruchFormular(knopf, name) {
+      document.querySelectorAll(".korr").forEach((f) => f.remove());
+      const m = (daten.mitarbeiterAlle || []).find((x) => x.name === name) || {};
+      const f = document.createElement("div");
+      f.className = "korr";
+      f.innerHTML = '<div class="korr-kopf">Urlaubsanspruch von <b>' + esc(name) + "</b> (ganze Tage, Werktage):</div>" +
+        '<div class="korr-zeile fahrzeug-zeile"><label>Urlaubstage pro Jahr<input type="number" class="k-jahr" min="0" max="60" step="0.5" value="' + (m.urlaubJahr != null ? m.urlaubJahr : "") + '" /></label>' +
+        '<label>Übertrag aus dem Vorjahr<input type="number" class="k-ueb" min="-60" max="60" step="0.5" value="' + (m.uebertrag || "") + '" /></label></div>' +
+        '<div class="korr-knoepfe"><button type="button" class="speichern">Speichern</button><button type="button" class="neben">Abbrechen</button></div>';
+      knopf.closest(".zeile").after(f);
+      f.querySelector(".neben").addEventListener("click", () => f.remove());
+      f.querySelector(".speichern").addEventListener("click", () => mitarbeiterAktion("anspruch", name, "", "", { urlaubJahr: f.querySelector(".k-jahr").value, uebertrag: f.querySelector(".k-ueb").value }));
+      f.querySelector(".k-jahr").focus();
+    }
+    async function mitarbeiterAktion(op, name, datev, neu, extra) {
       $("laden").hidden = false;
       let r;
-      try { r = await apiPost({ aktion: "mitarbeiter", op: op, pin: speicherS("az_dispo_pin"), name: name, datev: datev || "", neu: neu || "" }); }
+      try { r = await apiPost(Object.assign({ aktion: "mitarbeiter", op: op, pin: speicherS("az_dispo_pin"), name: name, datev: datev || "", neu: neu || "" }, extra)); }
       catch (e) { r = { status: "error", message: "Keine Verbindung – nichts geändert." }; }
       $("laden").hidden = true;
       if (r.status === "ok" && op === "umbenennen") {   // Einträge haben sich geändert: alles neu laden
@@ -462,7 +532,7 @@
         daten.mitarbeiterAlle = r.mitarbeiterAlle;
         daten.mitarbeiter = r.mitarbeiterAlle.filter((m) => m.aktiv).map((m) => ({ name: m.name, standort: "EU" }));
         auswerten(); zeichne();
-        toast(op === "entfernen" ? name + " entfernt" : name + " ist in der Liste");
+        toast(op === "entfernen" ? name + " entfernt" : op === "anspruch" ? "Urlaubsanspruch von " + name + " gespeichert" : name + " ist in der Liste");
       } else if (r.status === "pin" || r.status === "gesperrt") { toast(r.message, true); $("abmelden").click(); }
       else toast(r.message || "Fehler.", true);
     }
@@ -495,12 +565,14 @@
       aktionen = [];
       if (!p) { $("rechts").innerHTML = '<div class="leer">Mitarbeiter anklicken, um die einzelnen Tage zu sehen.</div>'; return; }
       const anfang = monat + "-01", letzter = isoVon(new Date(+monat.slice(0, 4), +monat.slice(5, 7), 0));
-      const bis = monat === daten.heute.slice(0, 7) ? daten.heute : letzter;
+      // bis heute; künftige Tage nur, wenn dort schon etwas steht (z. B. geplanter Urlaub)
+      const spaetester = Object.keys(p.tage).filter((t) => t.slice(0, 7) === monat).sort().pop() || "";
+      const bis = monat < daten.heute.slice(0, 7) ? letzter : spaetester > daten.heute ? spaetester : monat === daten.heute.slice(0, 7) ? daten.heute : anfang;
       const knopf = (text, typ, x) => '<button type="button" class="tag-aktion" data-a="' + aktionen.push({ typ: typ, x: x }) + '">' + text + "</button>";
       const zeilen = tageZwischen(anfang, bis).map((t) => {   // aufsteigend: der 1. steht oben
         const es = p.tage[t] || [], we = !werktag(t), d = alsDatum(t);
-        const dtxt = '<div class="d">' + d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }) + "<small>" + d.toLocaleDateString("de-DE", { weekday: "long" }) + "</small></div>";
-        if (!es.length) return we ? "" : '<div class="tag">' + dtxt + '<div style="color:var(--leise)">kein Eintrag</div><div></div><div class="tag-knoepfe">' + (p.inListe && backendAb("2.6") ? knopf("+ Eintrag", "nachtragen", { p: p, tag: t }) : "") + "</div></div>";
+        const dtxt = '<div class="d">' + d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }) + "<small>" + (feiertag(t) ? esc(feiertag(t)) : d.toLocaleDateString("de-DE", { weekday: "long" })) + "</small></div>";
+        if (!es.length) return we || t > daten.heute ? "" : '<div class="tag">' + dtxt + '<div style="color:var(--leise)">kein Eintrag</div><div></div><div class="tag-knoepfe">' + (p.inListe && backendAb("2.6") ? knopf("+ Eintrag", "nachtragen", { p: p, tag: t }) : "") + "</div></div>";
         return es.map((x) => {
           const warn = x.flags.length, cls = x.art === "urlaub" ? " urlaub" : x.art === "krank" ? " krank" : warn ? " warn" : "";
           const flags = x.flags.map((f) => '<span class="pill w">' + ({ doppelt: "doppelt", ueberschneidung: "überschneidet", fahrzeug: "Fahrzeug?" })[f] + "</span>").join(" ");
@@ -527,6 +599,7 @@
               (q.von ? ' <span class="pill">' + kurz(q.von) + " – " + kurz(q.bis) + "</span>" : "") + (x.stundenOffen ? ' <span class="pill w">Stunden fehlen</span>' : "") + " " + flags;
             // jeder Urlaubs-/Krankheitstag hat den Knopf; die Stunden gelten für den ganzen Zeitraum (Krank erst ab Backend 2.5)
             if (q.zeile && !x.doppelt && (x.art === "urlaub" || backendNeu())) knoepfe = knopf(x.stundenOffen ? "Stunden eintragen" : backendAb("2.6") ? "Gesamt ändern" : "Stunden ändern", "urlaub", x);
+            if (q.zeile && !x.doppelt && backendAb("2.7")) knoepfe += knopf("Zeitraum", "zeitraum", x);
           }
           let stunden = x.stundenOffen ? '<span style="color:var(--leise)">–</span>' : x.doppelt ? '<s style="color:var(--leise)">' + std(x.netto) + "</s>" : std(x.netto);
           // Urlaub/Krank: Stunden dieses Tages anklicken = nur diesen Tag ändern
@@ -538,7 +611,7 @@
       $("rechts").innerHTML = '<div class="detail-kopf"><div class="ava" style="background:' + (p.inListe ? farbe(p.name) : "#94a3b8") + '">' + esc(initialen(p.name)) + '</div><div><strong>' + esc(p.name) + "</strong>" + (p.inListe ? (backendAb("2.6") ? "<br>" + knopf("+ Eintrag nachtragen", "nachtragen", { p: p, tag: bis }) : "") : '<span class="pill w">nicht in der Liste</span>' + (backendNeu() ? "<br>" + knopf("Namen zuordnen …", "zuordnen", { p: p }) : "")) + '</div><div class="gross">' + std(p.summe) + "<small>Std. netto " + esc(monatName(monat)) + "</small></div></div>" + kontoBox(p, knopf) + zeilen;
       document.querySelectorAll("#rechts [data-a]").forEach((b) => b.addEventListener("click", () => {
         const a = aktionen[+b.dataset.a - 1];
-        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular, zeit: zeitFormular, konto: kontoFormular, zuordnen: zuordnenFormular, tag: tagFormular, nachtragen: nachtragenFormular })[a.typ](b, a.x);
+        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular, zeit: zeitFormular, konto: kontoFormular, zuordnen: zuordnenFormular, tag: tagFormular, nachtragen: nachtragenFormular, zeitraum: zeitraumFormular })[a.typ](b, a.x);
       }));
     }
 
@@ -698,6 +771,144 @@
       inp.focus();
     }
 
+    function zahlText(x) { return (Math.round(x * 10) / 10).toLocaleString("de-DE"); }
+
+    // ---------- A: Kalender-Leiste (diese + 2 Wochen): Urlaub, Krank, offene Anträge ----------
+    function kalenderLeiste() {
+      const box = $("kalender");
+      if (!backendAb("2.7") || !daten.kalender) { box.hidden = true; return; }
+      box.hidden = false;
+      const abw = new Map();
+      (daten.kalender.eintraege || []).forEach((e) => abw.set(norm(e.name) + "|" + e.art + "|" + e.von + "|" + e.bis, { name: e.name, art: e.art, von: e.von, bis: e.bis }));
+      (daten.antraege || []).filter((a) => a.status === "beantragt").forEach((a) => abw.set("antrag|" + a.id, { name: a.name, art: "beantragt", von: a.von, bis: a.bis, antrag: true }));
+      const liste = [...abw.values()], tage = tageZwischen(daten.kalender.von, daten.kalender.bis), reihe = ["krank", "urlaub", "beantragt"];
+      let html = '<div class="kal-kopf"><b>Urlaub und Krank</b><span>diese und die nächsten zwei Wochen</span><span class="kal-leg"><span><i class="kc u"></i>Urlaub</span><span><i class="kc k"></i>Krank</span><span><i class="kc b"></i>Antrag offen</span></span></div>';
+      const chip = (x) => '<button type="button" class="kc ' + (x.art === "krank" ? "k" : x.art === "urlaub" ? "u" : "b") + '" title="' + esc(x.name + " · " + (x.art === "beantragt" ? "Antrag offen" : x.art === "krank" ? "krank" : "Urlaub") + " " + kurz(x.von) + " – " + kurz(x.bis)) + '" data-kal="' + esc(x.antrag ? "" : x.name) + '">';
+      if (innerWidth < 640) {   // Handy: Liste der Tage, an denen jemand fehlt
+        const zeilen = tage.filter(werktag).map((t) => {
+          const da = liste.filter((x) => x.von <= t && x.bis >= t).sort((a, b) => reihe.indexOf(a.art) - reihe.indexOf(b.art));
+          if (!da.length) return "";
+          const fehlen = new Set(da.filter((x) => x.art !== "beantragt").map((x) => norm(x.name))).size;
+          return '<div class="kal-zeile' + (fehlen >= WARN_AB ? " voll" : "") + '"><div class="kal-d">' + kurz(t) + (fehlen >= WARN_AB ? ' <span class="kal-warn">⚠ ' + fehlen + "</span>" : "") + "</div><div>" + da.map((x) => chip(x) + esc(x.name) + "</button>").join("") + "</div></div>";
+        }).join("");
+        box.innerHTML = html + (zeilen || '<div class="leer">In den nächsten drei Wochen fehlt niemand.</div>');
+      } else
+      for (let w = 0; w * 7 < tage.length; w++) {
+        const woche = tage.slice(w * 7, w * 7 + 7);
+        html += '<div class="kal-woche"><div class="kal-kw">KW ' + kw(woche[0]) + "</div>" + woche.map((t) => {
+          const we = !werktag(t), ft = feiertag(t), d = alsDatum(t);
+          const da = we ? [] : liste.filter((x) => x.von <= t && x.bis >= t).sort((a, b) => reihe.indexOf(a.art) - reihe.indexOf(b.art) || a.name.localeCompare(b.name, "de"));
+          const fehlen = new Set(da.filter((x) => x.art !== "beantragt").map((x) => norm(x.name))).size;
+          return '<div class="kal-tag' + (we ? " we" : "") + (t === daten.heute ? " heute" : "") + (fehlen >= WARN_AB ? " voll" : "") + '"><div class="kal-d">' + d.toLocaleDateString("de-DE", { weekday: "short" }) + " " + d.getDate() + "." +
+            (fehlen >= WARN_AB ? ' <span class="kal-warn" title="' + fehlen + ' fehlen">⚠ ' + fehlen + "</span>" : "") + "</div>" + (ft ? '<div class="kal-ft">' + esc(ft) + "</div>" : "") +
+            da.slice(0, 4).map((x) => chip(x) + esc(kurzName(x.name)) + "</button>").join("") +
+            (da.length > 4 ? '<span class="kal-mehr">+' + (da.length - 4) + " weitere</span>" : "") + "</div>";
+        }).join("") + "</div>";
+      }
+      if (innerWidth >= 640) box.innerHTML = html;
+      box.querySelectorAll("[data-kal]").forEach((b) => b.addEventListener("click", () => {
+        if (!b.dataset.kal) { reiterWahl("urlaub"); return; }
+        gewaehlt = personen.find((p) => norm(p.name) === norm(b.dataset.kal)) || null;
+        if (ansicht === "urlaub" || ansicht === "team") reiterWahl("monat"); else zeichne();
+        $("rechts").scrollIntoView({ behavior: "smooth", block: "start" });
+      }));
+    }
+
+    // ---------- B + C: Reiter Urlaub (offene Anträge, Monatsplan, entschiedene Anträge) ----------
+    let planAlle = false;
+    function urlaubAnsicht() {
+      const alle = daten.antraege || [];
+      const offen = alle.filter((a) => a.status === "beantragt").sort((a, b) => (a.von < b.von ? -1 : 1));
+      const fertig = alle.filter((a) => a.status !== "beantragt").sort((a, b) => (a.id < b.id ? 1 : -1)).slice(0, 40);
+      const txtStatus = { genehmigt: "genehmigt", abgelehnt: "abgelehnt", "zurückgezogen": "zurückgezogen" };
+      $("links").innerHTML = "<h2>Offene Urlaubsanträge <small>" + (offen.length ? offen.length + " warten auf Entscheidung" : "aus der Zeiterfassung der Mitarbeiter") + "</small></h2>" +
+        (offen.length ? offen.map(antragKarte).join("") : '<div class="leer">Keine offenen Anträge. 👍</div>') +
+        '<h2 style="border-top:1px solid var(--linie)">Urlaubsplan ' + esc(monatText(monat)) + ' <small><button type="button" class="link-plus" id="plan-alle">' + (planAlle ? "Nur Mitarbeiter mit Abwesenheit" : "Alle Mitarbeiter zeigen") + "</button></small></h2>" + monatsplan() +
+        (fertig.length ? '<details class="erledigt-liste"><summary>Entschiedene Anträge (' + fertig.length + ")</summary>" + fertig.map((a) =>
+          '<div class="hinweis ist-erledigt"><span class="i" style="background:' + (a.status === "genehmigt" ? "#0284c7" : "#94a3b8") + '">' + (a.status === "genehmigt" ? "✓" : "–") + "</span><div><b>" + esc(a.name) + "</b> – " + kurz(a.von) + " – " + kurz(a.bis) + " (" + a.tage + " Tage): " + (txtStatus[a.status] || a.status) +
+          (a.entschieden ? " am " + esc(a.entschieden.slice(0, 10)) : "") + (a.antwort ? " · „" + esc(a.antwort) + "“" : "") + "</div></div>").join("") + "</details>" : "");
+      $("plan-alle").addEventListener("click", () => { planAlle = !planAlle; zeichne(); });
+      document.querySelectorAll("#links .uplan [data-n]").forEach((z) => z.addEventListener("click", () => { gewaehlt = personen.find((p) => p.name === z.dataset.n) || null; reiterWahl("monat"); }));
+      document.querySelectorAll("#links .antrag").forEach(antragBinden);
+    }
+    function antragKarte(a) {
+      const k = a.konto || {}, rest = k.anspruch == null ? null : k.anspruch - k.genommen - (k.beantragt - a.tage);
+      const tageTxt = (n) => n + (n === 1 ? " Tag" : " Tage");
+      const konf = (a.konflikte || []).map((x) => "<b>" + kurz(x.tag) + "</b>: " + x.namen.map((n) => esc(kurzName(n.name)) + (n.art === "Urlaub" ? "" : " (" + n.art + ")")).join(", ") + (x.namen.filter((n) => n.art !== "beantragt").length + 1 >= WARN_AB ? " ⚠" : ""));
+      return '<div class="antrag" data-id="' + esc(a.id) + '"><div class="antrag-kopf"><div class="ava" style="background:' + farbe(a.name) + '">' + esc(initialen(a.name)) + "</div><div><b>" + esc(a.name) + "</b><small>beantragt am " + esc(a.eingang.slice(0, 10)) + '</small></div><span class="pill w a-tage">' + tageTxt(a.tage) + "</span></div>" +
+        '<div class="antrag-zr">' + kurz(a.von) + " – " + kurz(a.bis) + "</div>" + (a.notiz ? '<div class="notiz">„' + esc(a.notiz) + "“</div>" : "") +
+        '<div class="antrag-info">' + (rest == null ? "Urlaubsanspruch nicht hinterlegt (Reiter Mitarbeiter → Urlaub)." : "Resturlaub " + esc(k.jahr) + ": <b>" + zahlText(rest) + " Tage</b> → nach Genehmigung " + zahlText(rest - a.tage) + " Tage") + "</div>" +
+        (konf.length ? '<div class="antrag-konf">Es fehlen schon: ' + konf.slice(0, 5).join(" · ") + (konf.length > 5 ? " · +" + (konf.length - 5) + " weitere Tage" : "") + "</div>" : '<div class="antrag-info" style="color:var(--gruen)">An diesen Tagen fehlt sonst niemand.</div>') +
+        '<div class="korr-zeile"><label>Von<input type="date" class="a-von" value="' + esc(a.von) + '" /></label><label>Bis<input type="date" class="a-bis" value="' + esc(a.bis) + '" /></label>' +
+        '<label class="grund">Antwort an den Mitarbeiter <span style="font-weight:500">(optional)</span><input type="text" class="a-antwort" placeholder="z. B. Bitte nur bis Mittwoch" /></label></div>' +
+        '<div class="korr-knoepfe"><button type="button" class="speichern a-ok">Genehmigen</button><button type="button" class="aufheben a-nein">Ablehnen</button></div></div>';
+    }
+    function antragBinden(karte) {
+      const a = (daten.antraege || []).find((x) => x.id === karte.dataset.id), $k = (c) => karte.querySelector(c);
+      const zaehle = () => { const v = $k(".a-von").value, b = $k(".a-bis").value, n = v && b && b >= v ? tageZwischen(v, b).filter(werktag).length : 0; $k(".a-tage").textContent = n + (n === 1 ? " Tag" : " Tage"); $k(".a-ok").textContent = v === a.von && b === a.bis ? "Genehmigen" : "Mit neuem Zeitraum genehmigen"; };
+      [".a-von", ".a-bis"].forEach((c) => $k(c).addEventListener("input", zaehle));
+      $k(".a-ok").addEventListener("click", () => {
+        const v = $k(".a-von").value, b = $k(".a-bis").value;
+        if (!v || !b || b < v) { toast("Bitte einen gültigen Zeitraum angeben.", true); return; }
+        aktionSenden({ aktion: "antrag", op: "genehmigen", pin: speicherS("az_dispo_pin"), id: a.id, von: v, bis: b, antwort: $k(".a-antwort").value.trim() },
+          (r) => "Urlaub genehmigt: " + a.name + ", " + kurz(r.von) + " – " + kurz(r.bis) + " (" + r.tage + " Tage" + (r.stunden !== "" ? ", " + std(r.stunden) + " Std." : ", Stunden bitte eintragen") + ")");
+      });
+      $k(".a-nein").addEventListener("click", () => {
+        const b = $k(".a-nein");
+        if (!b.classList.contains("sicher")) { b.classList.add("sicher"); b.textContent = "Wirklich ablehnen?"; setTimeout(() => { if (b.isConnected) { b.classList.remove("sicher"); b.textContent = "Ablehnen"; } }, 6000); return; }
+        aktionSenden({ aktion: "antrag", op: "ablehnen", pin: speicherS("az_dispo_pin"), id: a.id, antwort: $k(".a-antwort").value.trim() }, () => "Antrag von " + a.name + " abgelehnt");
+      });
+    }
+    function monatsplan() {
+      const tage = tageZwischen(monat + "-01", isoVon(new Date(+monat.slice(0, 4), +monat.slice(5, 7), 0))), erster = tage[0], letzter = tage[tage.length - 1], jahr = monat.slice(0, 4);
+      const pro = new Map();
+      const add = (name, art, von, bis) => {
+        const k = norm(name); if (!pro.has(k)) pro.set(k, { name: name, tage: {} });
+        tageZwischen(von < erster ? erster : von, bis > letzter ? letzter : bis).forEach((t) => { if (werktag(t) && (!pro.get(k).tage[t] || pro.get(k).tage[t] === "beantragt")) pro.get(k).tage[t] = art; });
+      };
+      daten.eintraege.filter((e) => e.art !== "arbeit" && !(e.von > letzter || e.bis < erster)).forEach((e) => add(e.name, e.art, e.von, e.bis));
+      (daten.antraege || []).filter((a) => a.status === "beantragt" && !(a.von > letzter || a.bis < erster)).forEach((a) => add(a.name, "beantragt", a.von, a.bis));
+      const team = (daten.mitarbeiterAlle || []).filter((m) => m.aktiv);
+      const zeilen = (planAlle ? team.map((m) => pro.get(norm(m.name)) || { name: m.name, tage: {} }) : [...pro.values()]).sort((a, b) => a.name.localeCompare(b.name, "de"));
+      if (!zeilen.length) return '<div class="leer">In diesem Monat ist niemand im Urlaub oder krank.</div>';
+      const beantragtJahr = (n) => (daten.antraege || []).filter((a) => a.status === "beantragt" && norm(a.name) === n && a.von.slice(0, 4) === jahr).reduce((s2, a) => s2 + a.tage, 0);
+      const rest = (name) => { const m = team.find((x) => norm(x.name) === norm(name)); if (!m || m.urlaubJahr == null) return null; return m.urlaubJahr + (m.uebertrag || 0) - ((daten.urlaubstage || {})[norm(name)] || 0) - beantragtJahr(norm(name)); };
+      const spalten = "grid-template-columns: 150px repeat(" + tage.length + ", minmax(14px, 1fr)) 64px";
+      let h = '<div class="uplan" style="' + spalten + '"><div></div>' + tage.map((t) => '<div class="kopfz">' + alsDatum(t).getDate() + "<br>" + alsDatum(t).toLocaleDateString("de-DE", { weekday: "narrow" }) + "</div>").join("") + '<div class="kopfz">Rest ' + jahr + "</div>";
+      zeilen.forEach((z) => {
+        const r2 = rest(z.name);
+        h += '<div class="n" data-n="' + esc(z.name) + '">' + esc(z.name) + "</div>" + tage.map((t) => '<div class="z' + (!werktag(t) ? " we" : z.tage[t] ? " " + z.tage[t] : "") + '" title="' + esc(kurz(t) + (feiertag(t) ? " · " + feiertag(t) : "") + (z.tage[t] ? " · " + (z.tage[t] === "beantragt" ? "Antrag offen" : z.tage[t]) : "")) + '"></div>').join("") +
+          '<div class="rest' + (r2 != null && r2 < 0 ? " minus" : "") + '">' + (r2 == null ? "–" : zahlText(r2)) + "</div>";
+      });
+      h += '<div class="n" style="cursor:default;color:var(--leise)">Es fehlen</div>' + tage.map((t) => {
+        if (!werktag(t)) return "<div></div>";
+        const n = [...pro.values()].filter((z) => z.tage[t] === "urlaub" || z.tage[t] === "krank").length;
+        return '<div class="fehlt' + (n >= WARN_AB ? " viel" : "") + '">' + (n || "") + "</div>";
+      }).join("") + "<div></div></div>";
+      return '<div class="uplan-box">' + h + '<div style="font-size:.72rem;color:var(--leise);margin-top:.5rem"><span class="kc u" style="display:inline-block;width:auto">Urlaub</span> <span class="kc k" style="display:inline-block;width:auto">Krank</span> <span class="kc b" style="display:inline-block;width:auto">Antrag offen</span> · Rest = Anspruch + Übertrag − genommen − beantragt (Werktage ohne Feiertage)</div></div>';
+    }
+
+    // Urlaub/Krank verschieben: Stunden je Tag bleiben, die Summe passt sich den neuen Tagen an
+    function zeitraumFormular(knopf, x) {
+      const q = x.quelle, art = x.art === "krank" ? "Krank" : "Urlaub";
+      const f = formularOeffnen(knopf, '<div class="korr-kopf">' + art + " <b>" + kurz(q.von) + " – " + kurz(q.bis) + "</b> verschieben oder verlängern:</div>" +
+        '<div class="korr-zeile"><label>Von<input type="date" class="k-von" value="' + esc(q.von) + '" /></label><label>Bis<input type="date" class="k-bis" value="' + esc(q.bis) + '" /></label>' +
+        '<label class="grund">Grund <span style="font-weight:500">(optional)</span><input type="text" class="k-g" placeholder="z. B. Mitarbeiter kommt früher zurück" /></label></div>' +
+        '<div class="korr-vorschau"></div><div class="korr-knoepfe"><button type="button" class="speichern">Zeitraum speichern</button><button type="button" class="neben">Abbrechen</button></div>');
+      const von = f.querySelector(".k-von"), bis = f.querySelector(".k-bis"), vs = f.querySelector(".korr-vorschau"), sp = f.querySelector(".speichern");
+      const alt = tageZwischen(q.von, q.bis).filter(werktag).length;
+      function vorschau() {
+        if (!von.value || !bis.value || bis.value < von.value) { vs.innerHTML = '<span class="warn">Bitte einen gültigen Zeitraum angeben.</span>'; sp.disabled = true; return; }
+        const n = tageZwischen(von.value, bis.value).filter(werktag).length;
+        vs.innerHTML = n + (n === 1 ? " Werktag" : " Werktage") + " (bisher " + alt + ")" + (x.stundenOffen ? "" : " → " + std(rund(q.netto / (alt || 1) * n)) + " Std. gesamt");
+        sp.disabled = !n || (von.value === q.von && bis.value === q.bis);
+      }
+      [von, bis].forEach((i) => i.addEventListener("input", vorschau)); vorschau();
+      sp.addEventListener("click", () => aktionSenden({ aktion: "zeitraum", pin: speicherS("az_dispo_pin"), zeile: q.zeile, name: q.name, von: q.von, neuVon: von.value, neuBis: bis.value, grund: f.querySelector(".k-g").value.trim() },
+        (r) => art + " jetzt " + kurz(r.von) + " – " + kurz(r.bis) + " (" + r.tage + " Tage)"));
+      von.focus();
+    }
+
     // Stunden an einem einzelnen Urlaubs-/Krankheitstag: die anderen Tage bleiben, die Summe des Zeitraums rechnet das Backend neu
     function tagFormular(knopf, x) {
       const q = x.quelle, art = x.art === "krank" ? "Krank" : "Urlaub";
@@ -820,7 +1031,8 @@
     async function blaettern(n) { monat = monatPlus(monat, n); const r = await lade(speicherS("az_dispo_pin")); if (r.status !== "ok") { monat = monatPlus(monat, -n); if (r.status === "pin" || r.status === "gesperrt") $("abmelden").click(); else alert(r.message || "Fehler beim Laden."); } }
     $("vor").addEventListener("click", () => blaettern(-1));
     $("nach").addEventListener("click", () => blaettern(1));
-    $("reiter").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; ansicht = b.dataset.ansicht; document.querySelectorAll("#reiter button").forEach((x) => x.classList.toggle("an", x === b)); zeichne(); });
+    function reiterWahl(a) { ansicht = a; document.querySelectorAll("#reiter button").forEach((x) => x.classList.toggle("an", x.dataset.ansicht === a)); zeichne(); }
+    $("reiter").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) reiterWahl(b.dataset.ansicht); });
     $("suche").addEventListener("input", (e) => { suche = norm(e.target.value); zeichne(); });
 
     // ---------- Demo (nur lokal / ?demo) ----------
@@ -874,6 +1086,27 @@
             const l = eigene(); for (let i = 1; i < l.length; i++) if (l[i].monat > b.monat) { l[i].uebertragAlt = l[i - 1].uebertragNeu; l[i].uebertragNeu = rund(l[i].uebertragAlt + l[i].stunden - l[i].ausbezahlt); }
             return ok({ status: "ok", konto: this.kontoFuer(b.monat).find((k) => norm(k.name) === norm(b.name)) || { name: b.name, vorher: null, aktuell: null } });
           }
+          if (b.aktion === "antrag") {
+            const a = this.antraege.find((x) => x.id === b.id);
+            if (!a || a.status !== "beantragt") return ok({ status: "error", message: "Antrag nicht gefunden." });
+            a.entschieden = "20.10.2026 12:00";
+            if (b.op === "ablehnen") { a.status = "abgelehnt"; a.antwort = b.antwort || ""; return ok({ status: "ok" }); }
+            const tage = tageZwischen(b.von, b.bis).filter(werktag).length, geaendert = b.von !== a.von || b.bis !== a.bis;
+            this.extra.push({ name: a.name, datum: b.von, art: "urlaub", von: b.von, bis: b.bis, netto: rund(7.5 * tage), notiz: "Urlaub " + b.von + " – " + b.bis + " (" + tage + " Werktage) · Antrag genehmigt" });
+            a.antwort = b.antwort || (geaendert ? "Zeitraum geändert: " + a.von + " – " + a.bis + " → " + b.von + " – " + b.bis : "");
+            Object.assign(a, { status: "genehmigt", von: b.von, bis: b.bis, tage: tage });
+            return ok({ status: "ok", von: b.von, bis: b.bis, tage: tage, stunden: rund(7.5 * tage) });
+          }
+          if (b.aktion === "zeitraum") {
+            this.zeitraumAend[b.name + "|" + b.von] = { von: b.neuVon, bis: b.neuBis };
+            delete this.tagStd[b.name + "|" + b.von];
+            return ok({ status: "ok", von: b.neuVon, bis: b.neuBis, tage: tageZwischen(b.neuVon, b.neuBis).filter(werktag).length });
+          }
+          if (b.aktion === "mitarbeiter" && b.op === "anspruch") {
+            const m = this.teamListe().find((x) => x.name === b.name);
+            m.urlaubJahr = b.urlaubJahr === "" ? null : Number(b.urlaubJahr); m.uebertrag = Number(b.uebertrag) || 0;
+            return ok({ status: "ok", mitarbeiterAlle: this.team.slice().sort((a, c) => a.name.localeCompare(c.name, "de")) });
+          }
           if (b.aktion === "abwesenheitstag") {
             const k = b.name + "|" + b.von, x = this.daten(b.von.slice(0, 7)).eintraege.find((e) => e.art !== "arbeit" && e.name === b.name && e.von === b.von);
             const wt = tageZwischen(x.von, x.bis).filter(werktag), alt = this.tagStd[k] || {};
@@ -912,11 +1145,17 @@
             else if (m) m.aktiv = false;
             return ok({ status: "ok", mitarbeiterAlle: t.slice().sort((a, c) => a.name.localeCompare(c.name, "de")) });
           }
-          ok(Object.assign({ status: "ok", version: "2.6", monat: b.monat, heute: "2026-10-16", stand: new Date().toISOString() }, this.daten(b.monat)));
+          ok(Object.assign({ status: "ok", version: "2.7", monat: b.monat, heute: "2026-10-16", stand: new Date().toISOString() }, this.daten(b.monat)));
         }, 500));
       },
       team: null,
-      korr: {}, fzAend: {}, zeitAend: {}, umbenannt: {}, tagStd: {}, extra: [], urlaubStd: { "Hanna Skizze|2026-10-05": 16 }, erledigt: [],
+      korr: {}, fzAend: {}, zeitAend: {}, umbenannt: {}, tagStd: {}, extra: [], zeitraumAend: {},
+      antraege: [
+        { id: "U5", name: "Mia Fiktiv", von: "2026-10-21", bis: "2026-10-23", tage: 3, notiz: "Familienfeier", status: "beantragt", eingang: "15.10.2026 08:12", entschieden: "", antwort: "" },
+        { id: "U6", name: "Lukas Attrappe", von: "2026-10-26", bis: "2026-10-30", tage: 5, notiz: "", status: "beantragt", eingang: "16.10.2026 07:40", entschieden: "", antwort: "" },
+        { id: "U7", name: "Anna Beispiel", von: "2026-12-21", bis: "2026-12-31", tage: 8, notiz: "Weihnachten", status: "beantragt", eingang: "16.10.2026 09:05", entschieden: "", antwort: "" },
+        { id: "U2", name: "Carl Muster", von: "2026-10-05", bis: "2026-10-06", tage: 2, notiz: "", status: "genehmigt", eingang: "28.09.2026 10:00", entschieden: "29.09.2026 08:30", antwort: "" },
+        { id: "U3", name: "Noah Annahme", von: "2026-11-02", bis: "2026-11-06", tage: 5, notiz: "", status: "abgelehnt", eingang: "01.10.2026 16:20", entschieden: "02.10.2026 09:10", antwort: "Zu viele im Urlaub" }], urlaubStd: { "Hanna Skizze|2026-10-05": 16 }, erledigt: [],
       konto: [{ monat: "2026-09", name: "Hanna Skizze", uebertragAlt: 0, stunden: 162.5, ausbezahlt: 155, uebertragNeu: 7.5, bemerkung: "laut Lohnabrechnung September", am: "05.10.2026 09:12 (Demo)" },
               { monat: "2026-09", name: "Jonas Prototyp", uebertragAlt: 0, stunden: 46, ausbezahlt: 43, uebertragNeu: 3, bemerkung: "Minijob-Grenze", am: "05.10.2026 09:15 (Demo)" }],
       kontoFuer(m) {
@@ -929,10 +1168,10 @@
       },
       teamListe() {
         if (!this.team) this.team = ["Anna Beispiel", "Berta Probe", "Carl Muster", "Dana Test", "Emil Entwurf", "Frieda Vorlage", "Gustav Platzhalter", "Hanna Skizze", "Ilse Modell", "Jonas Prototyp", "Karla Schablone", "Lukas Attrappe", "Mia Fiktiv", "Noah Annahme"]
-          .map((n, i) => ({ name: n, aktiv: true, datev: String(100 + i * 7) })).concat([{ name: "Otto Ehemalig", aktiv: false, datev: "42" }]);
+          .map((n, i) => ({ name: n, aktiv: true, datev: String(100 + i * 7), urlaubJahr: n === "Noah Annahme" ? null : i % 5 === 4 ? 20 : 26, uebertrag: i === 0 ? 3 : 0 })).concat([{ name: "Otto Ehemalig", aktiv: false, datev: "42", urlaubJahr: null, uebertrag: 0 }]);
         return this.team;
       },
-      daten(m) {
+      daten(m, nurEintraege) {
         const namen = ["Anna Beispiel", "Berta Probe", "Carl Muster", "Dana Test", "Emil Entwurf", "Frieda Vorlage", "Gustav Platzhalter", "Hanna Skizze", "Ilse Modell", "Jonas Prototyp", "Karla Schablone", "Lukas Attrappe", "Mia Fiktiv", "Noah Annahme"];
         const fz = ["EU-VM 101", "EU-VM 913", "SLE-VM 300", "SLE-VM 104", "EU-VM 320", "SLE-VM 136", "EU-VM 912"];
         let s = m === "2026-10" ? 7 : 11; const z = () => (s = (s * 9301 + 49297) % 233280) / 233280;
@@ -962,15 +1201,19 @@
           e.push({ name: "Jonas Prototyp", datum: "2026-10-06", art: "arbeit", beginn: "06:45", ende: "10:30", fahrzeug: "SLE-VM 300", netto: 3.75, notiz: "" });
           e.push({ name: "Jonas Prototyp", datum: "2026-10-08", art: "arbeit", beginn: "13:00", ende: "16:30", fahrzeug: "SLE-VM 300", netto: 3.5, notiz: "" });
           e.push({ name: "Jonas Prototyp", datum: "2026-10-13", art: "urlaub", von: "2026-10-13", bis: "2026-10-14", netto: 0, notiz: "Urlaub 2026-10-13 – 2026-10-14 (2 Werktage)" });
-          e.push({ name: "Frieda Vorlage", datum: "2026-10-16", art: "krank", von: "2026-10-16", bis: "2026-10-16", netto: 5, notiz: "Krank 2026-10-16 – 2026-10-16 (1 Werktage, AU: Ja)" });
+          e.push({ name: "Frieda Vorlage", datum: "2026-10-16", art: "krank", von: "2026-10-16", bis: "2026-10-20", netto: 15, notiz: "Krank 2026-10-16 – 2026-10-20 (3 Werktage, AU: Ja)" });
+          e.push({ name: "Gustav Platzhalter", datum: "2026-10-19", art: "urlaub", von: "2026-10-19", bis: "2026-10-30", netto: 80, notiz: "Urlaub 2026-10-19 – 2026-10-30 (10 Werktage) · Antrag genehmigt" });
+          e.push({ name: "Karla Schablone", datum: "2026-10-26", art: "urlaub", von: "2026-10-26", bis: "2026-10-28", netto: 24, notiz: "Urlaub 2026-10-26 – 2026-10-28 (3 Werktage)" });
+          e.push({ name: "Berta Probe", datum: "2026-10-27", art: "urlaub", von: "2026-10-27", bis: "2026-10-29", netto: 24, notiz: "Urlaub 2026-10-27 – 2026-10-29 (3 Werktage)" });
         }
         this.extra.filter((x) => (x.von || x.datum).slice(0, 7) === m).forEach((x) => e.push(Object.assign({}, x)));
+        e.forEach((x) => { const z = this.zeitraumAend[x.name + "|" + x.von]; if (x.art !== "arbeit" && z) { const n = tageZwischen(z.von, z.bis).filter(werktag).length; x.netto = rund(x.netto / (tageZwischen(x.von, x.bis).filter(werktag).length || 1) * n); x.datum = z.von; x.von = z.von; x.bis = z.bis; x.notiz = x.notiz.replace(/\d{4}-\d{2}-\d{2} – \d{4}-\d{2}-\d{2} \(\d+ Werktage/, z.von + " – " + z.bis + " (" + n + " Werktage"); } });
         e.forEach((x, i) => {
           x.zeile = i + 2;
           if (this.umbenannt[norm(x.name)]) x.name = this.umbenannt[norm(x.name)];
           const td = this.tagStd[x.name + "|" + x.von];
           if (x.art !== "arbeit" && td) { x.tage = td; x.netto = rund(Object.values(td).reduce((a, v) => a + v, 0)); return; }
-          if (x.art === "urlaub") { const st = this.urlaubStd[x.name + "|" + x.von]; if (st === undefined) { x.netto = 0; x.stundenOffen = true; } else x.netto = st; return; }
+          if (x.art === "urlaub") { const st = this.urlaubStd[x.name + "|" + x.von]; if (st === undefined) { if (!x.netto) { x.netto = 0; x.stundenOffen = true; } } else x.netto = st; return; }
           if (x.art === "krank") { const st = this.urlaubStd[x.name + "|" + x.von]; if (st !== undefined) x.netto = st; return; }
           if (x.art !== "arbeit") return;
           const zn = Object.values(this.zeitAend).find((t) => t.orig === [x.name, x.datum, x.beginn, x.ende].join("|"));
@@ -982,7 +1225,28 @@
         });
         const team = this.teamListe();
         return { mitarbeiter: team.filter((x) => x.aktiv).map((x) => ({ name: x.name, standort: "EU" })), mitarbeiterAlle: team.slice().sort((a, c) => a.name.localeCompare(c.name, "de")), fahrzeuge: fz,
-          fahrzeugListe: fz.map((k, i) => ({ kennzeichen: k, name: ["BTW 1", "BTW 8", "BUS 6", "LMW 4", "TSW 3", "BUS 9", "BTW 9"][i], kategorie: ["BTW", "BTW", "BUS", "LMW", "TSW", "BUS", "BTW"][i] })), eintraege: e, erledigt: this.erledigt.slice(), konto: this.kontoFuer(m) };
+          fahrzeugListe: fz.map((k, i) => ({ kennzeichen: k, name: ["BTW 1", "BTW 8", "BUS 6", "LMW 4", "TSW 3", "BUS 9", "BTW 9"][i], kategorie: ["BTW", "BTW", "BUS", "LMW", "TSW", "BUS", "BTW"][i] })), eintraege: e, erledigt: this.erledigt.slice(), konto: this.kontoFuer(m), ...(nurEintraege ? {} : this.urlaubDaten(m, e, team)) };
+      },
+      // Urlaubsplanung (Demo): Kalenderfenster ab Montag der Woche von „heute“, Anträge mit Konflikten und Resturlaub
+      urlaubDaten(m, e, team) {
+        const kalVon = "2026-10-12", kalBis = "2026-11-01";
+        const abw = this.daten("2026-10", true).eintraege.concat(this.daten("2026-11", true).eintraege).filter((x) => x.art !== "arbeit");
+        const urlaubstage = {};
+        const gesehen = new Set();
+        abw.filter((x) => x.art === "urlaub").forEach((x) => { const k = norm(x.name) + x.von + x.bis; if (gesehen.has(k)) return; gesehen.add(k); urlaubstage[norm(x.name)] = (urlaubstage[norm(x.name)] || 0) + tageZwischen(x.von, x.bis).filter(werktag).length; });
+        const antraege = this.antraege.map((a) => {
+          if (a.status !== "beantragt") return Object.assign({}, a);
+          const konflikte = tageZwischen(a.von, a.bis).filter(werktag).map((t) => {
+            const namen = {};
+            abw.forEach((x) => { if (x.von <= t && x.bis >= t && x.name !== a.name) namen[x.name] = x.art === "krank" ? "krank" : "Urlaub"; });
+            this.antraege.forEach((b) => { if (b !== a && b.status === "beantragt" && b.von <= t && b.bis >= t && !namen[b.name]) namen[b.name] = "beantragt"; });
+            return { tag: t, namen: Object.keys(namen).map((n) => ({ name: n, art: namen[n] })) };
+          }).filter((k) => k.namen.length);
+          const t = team.find((x) => x.name === a.name) || {}, jahr = a.von.slice(0, 4);
+          const beantragt = this.antraege.filter((b) => b.status === "beantragt" && b.name === a.name && b.von.slice(0, 4) === jahr).reduce((s2, b) => s2 + b.tage, 0);
+          return Object.assign({}, a, { konflikte, konto: { jahr, anspruch: t.urlaubJahr == null ? null : t.urlaubJahr + (t.uebertrag || 0), genommen: urlaubstage[norm(a.name)] || 0, beantragt } });
+        });
+        return { kalender: { von: kalVon, bis: kalBis, eintraege: abw.filter((x) => !(x.von > kalBis || x.bis < kalVon)) }, antraege, urlaubstage };
       }
     };
 
