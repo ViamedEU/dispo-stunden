@@ -254,7 +254,10 @@
       const bekannt = new Set((daten.mitarbeiterAlle || daten.mitarbeiter).map((m) => norm(m.name)));   // auch Ausgeschiedene sind kein Tippfehler
       const person = (name) => { const k = norm(name); if (!liste.has(k)) liste.set(k, { name: name, inListe: bekannt.has(k), tage: {}, summe: 0, flags: 0 }); return liste.get(k); };
       const tagEintrag = (p, iso) => (p.tage[iso] = p.tage[iso] || []);
-      const gesehen = new Set(), doppelte = {};
+      const gesehen = new Set(), doppelte = {}, doppelteAbw = {};
+      // Urlaub/Krank mit gleichem Zeitraum mehrfach im Sheet: zählt nur einmal (die Meldung mit Stunden, sonst die erste)
+      const abwSchluessel = (e) => norm(e.name) + "|" + e.art + "|" + e.von + "|" + e.bis, abwZaehlt = new Map();
+      daten.eintraege.forEach((e) => { if (e.art === "arbeit") return; const a = abwZaehlt.get(abwSchluessel(e)); if (!a || (a.stundenOffen && !e.stundenOffen)) abwZaehlt.set(abwSchluessel(e), e); });
       daten.eintraege.forEach((e) => {
         const p = person(e.name);
         if (e.art === "arbeit") {
@@ -267,9 +270,11 @@
           if (e.fahrzeug && !fzg.has(normKz(e.fahrzeug)) && !x.doppelt) { x.flags.push("fahrzeug"); hinweise.push({ p, datum: e.datum, typ: "fahrzeug", detail: normKz(e.fahrzeug), text: "<b>" + esc(p.name) + "</b> – " + kurz(e.datum) + ": Fahrzeug „" + esc(e.fahrzeug) + "“ steht nicht in der Fuhrpark-Liste." }); }
           tagEintrag(p, e.datum).push(x);
         } else {
+          const k = abwSchluessel(e), doppelt = abwZaehlt.get(k) !== e;
           const alle = tageZwischen(e.von, e.bis).filter(werktag);
           const proTag = alle.length ? e.netto / alle.length : 0;
-          alle.filter((t) => t >= anfang && t <= ende).forEach((t) => { tagEintrag(p, t).push({ art: e.art, netto: proTag, notiz: e.notiz, flags: [], quelle: e, stundenOffen: !!e.stundenOffen }); p.summe += proTag; });
+          alle.filter((t) => t >= anfang && t <= ende).forEach((t) => { tagEintrag(p, t).push({ art: e.art, netto: proTag, notiz: e.notiz, flags: doppelt ? ["doppelt"] : [], doppelt: doppelt, quelle: e, stundenOffen: !doppelt && !!e.stundenOffen }); if (!doppelt) p.summe += proTag; });
+          if (doppelt) { (doppelteAbw[k] = doppelteAbw[k] || { p, e, n: 1 }).n++; return; }
           if (e.stundenOffen) hinweise.push({ p, datum: e.von, typ: "urlaub", text: "<b>" + esc(p.name) + "</b> – Urlaub " + kurz(e.von) + " – " + kurz(e.bis) + ": Stunden fehlen noch (beim Mitarbeiter auf „Stunden eintragen“)." });
         }
       });
@@ -277,6 +282,8 @@
       Object.values(doppelte).forEach((d) => hinweise.push({ p: d.p, datum: d.datum, typ: "doppelt", text: "<b>" + esc(d.p.name) + "</b> – " + kurz(d.datum) + ": " +
         (d.zeiten.length === 1 ? esc(d.zeiten[0]) + " steht mit genau gleicher Zeit zweimal drin. Zählt nur einmal."
                                : d.zeiten.length + " Einträge stehen mit genau gleicher Zeit doppelt drin (" + esc(d.zeiten.join(", ")) + "). Zählen nur einmal.") }));
+      Object.values(doppelteAbw).forEach((d) => hinweise.push({ p: d.p, datum: d.e.von, typ: "doppelt", detail: d.e.art + " " + d.e.von + "-" + d.e.bis, text: "<b>" + esc(d.p.name) + "</b> – " +
+        (d.e.art === "urlaub" ? "Urlaub " : "Krank ") + kurz(d.e.von) + " – " + kurz(d.e.bis) + " steht " + (d.n === 2 ? "zweimal" : d.n + "-mal") + " drin. Zählt nur einmal." }));
       // Überschneidungen am selben Tag (Fahrten direkt nacheinander, z. B. bis 12:35 und ab 12:35, sind keine)
       liste.forEach((p) => Object.keys(p.tage).forEach((t) => {
         const a = p.tage[t].filter((x) => x.art === "arbeit" && !x.doppelt);
@@ -455,8 +462,8 @@
           } else {
             const q = x.quelle || {};
             mitte = (x.art === "urlaub" ? '<span class="pill u">Urlaub</span>' : '<span class="pill k">Krank</span>') +
-              (q.von ? ' <span class="pill">' + kurz(q.von) + " – " + kurz(q.bis) + "</span>" : "") + (x.stundenOffen ? ' <span class="pill w">Stunden fehlen</span>' : "");
-            if (x.art === "urlaub" && q.zeile && !urlaubGezeigt.has(q.zeile)) { urlaubGezeigt.add(q.zeile); knoepfe = knopf(x.stundenOffen ? "Stunden eintragen" : "Stunden ändern", "urlaub", x); }
+              (q.von ? ' <span class="pill">' + kurz(q.von) + " – " + kurz(q.bis) + "</span>" : "") + (x.stundenOffen ? ' <span class="pill w">Stunden fehlen</span>' : "") + " " + flags;
+            if (x.art === "urlaub" && q.zeile && !x.doppelt && !urlaubGezeigt.has(q.zeile)) { urlaubGezeigt.add(q.zeile); knoepfe = knopf(x.stundenOffen ? "Stunden eintragen" : "Stunden ändern", "urlaub", x); }
           }
           const stunden = x.stundenOffen ? '<span style="color:var(--leise)">–</span>' : x.doppelt ? '<s style="color:var(--leise)">' + std(x.netto) + "</s>" : std(x.netto);
           return '<div class="tag' + cls + (x.korrektur || x.fahrzeugAlt ? " korrigiert" : "") + (we ? " we" : "") + '">' + dtxt + "<div>" + mitte + notiz + '</div><div class="h">' + stunden + '</div><div class="tag-knoepfe">' + knoepfe + "</div></div>";
@@ -619,7 +626,7 @@
         }, 500));
       },
       team: null,
-      korr: {}, fzAend: {}, urlaubStd: {}, erledigt: [],
+      korr: {}, fzAend: {}, urlaubStd: { "Hanna Skizze|2026-10-05": 16 }, erledigt: [],
       teamListe() {
         if (!this.team) this.team = ["Anna Beispiel", "Berta Probe", "Carl Muster", "Dana Test", "Emil Entwurf", "Frieda Vorlage", "Gustav Platzhalter", "Hanna Skizze", "Ilse Modell", "Jonas Prototyp", "Karla Schablone", "Lukas Attrappe", "Mia Fiktiv", "Noah Annahme"]
           .map((n, i) => ({ name: n, aktiv: true, datev: String(100 + i * 7) })).concat([{ name: "Otto Ehemalig", aktiv: false, datev: "42" }]);
@@ -638,6 +645,7 @@
             const iso = m + "-" + String(d).padStart(2, "0"), wt = alsDatum(iso).getDay();
             if (wt === 0 || (wt === 6 && z() > 0.15) || (mini && z() > 0.35) || z() < 0.06) continue;
             if (i === 3 && m === "2026-10" && d > 9) continue; // Lücke
+            if (i === 7 && m === "2026-10" && (d === 5 || d === 6)) continue; // Urlaub (steht doppelt drin)
             const b = 330 + Math.round(z() * 8) * 15, dauer = mini ? 180 + Math.round(z() * 4) * 30 : 420 + Math.round(z() * 8) * 15, h = dauer / 60;
             e.push({ name: n, datum: iso, art: "arbeit", beginn: fmt(b), ende: fmt(b + dauer), fahrzeug: z() < 0.85 ? fz[i % fz.length] : fz[(i + 3) % fz.length], netto: Math.round((h - (h >= 8 ? 0.75 : h >= 6 ? 0.5 : 0)) * 100) / 100, notiz: "" });
           }
@@ -648,6 +656,8 @@
           e.push({ name: "Karla Schablone", datum: "2026-10-08", art: "arbeit", beginn: "06:30", ende: "14:00", fahrzeug: "EU-VM 1", netto: 7, notiz: "" });
           e.push({ name: "Carla Schablone", datum: "2026-10-09", art: "arbeit", beginn: "06:30", ende: "14:00", fahrzeug: "EU-VM 101", netto: 7, notiz: "" });
           e.push({ name: "Ilse Modell", datum: "2026-10-12", art: "urlaub", von: "2026-10-12", bis: "2026-10-16", netto: 0, notiz: "Urlaub 2026-10-12 – 2026-10-16 (5 Werktage)" });
+          const hanna = { name: "Hanna Skizze", datum: "2026-10-05", art: "urlaub", von: "2026-10-05", bis: "2026-10-06", netto: 0, notiz: "Urlaub 2026-10-05 – 2026-10-06 (2 Werktage)" };
+          e.push(hanna, Object.assign({}, hanna));
           e.push({ name: "Frieda Vorlage", datum: "2026-10-16", art: "krank", von: "2026-10-16", bis: "2026-10-16", netto: 5, notiz: "Krank 2026-10-16 – 2026-10-16 (1 Werktage, AU: Ja)" });
         }
         e.forEach((x, i) => {
