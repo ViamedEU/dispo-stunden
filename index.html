@@ -95,6 +95,8 @@
     .korr-zeile:has(input[type="date"]) { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }   /* Datum braucht mehr Platz als Uhrzeit; Grund rutscht bei Bedarf in die nächste Zeile */
     .korr-zeile:has(input[type="date"]) .grund { grid-column: span 2; }
     @media (max-width: 700px) { .korr-zeile:has(input[type="date"]) { grid-template-columns: 1fr 1fr; } }
+    .datum-knopf { border: none; background: none; font: inherit; text-align: left; padding: 0.15rem 0.3rem; margin-left: -0.3rem; border-radius: 8px; cursor: pointer; }
+    .datum-knopf:hover { background: #e0ecff; } .datum-knopf:hover .d, .datum-knopf:hover .d small { color: #1d4ed8; } .datum-knopf .stift { font-size: 0.7rem; color: var(--leise); }
     .zeit-knopf { white-space: nowrap; border: none; background: none; font: inherit; font-weight: 800; color: var(--tinte); cursor: pointer; padding: 0.15rem 0.4rem; margin-left: -0.4rem; border-radius: 8px; }
     .zeit-knopf span { color: var(--leise); font-size: 0.75rem; font-weight: 700; }
     .zeit-knopf:hover { background: #e0ecff; color: #1d4ed8; } .zeit-knopf:hover span { color: #1d4ed8; }
@@ -610,13 +612,16 @@
           // Urlaub/Krank: Stunden dieses Tages anklicken = nur diesen Tag ändern
           if (x.art !== "arbeit" && x.quelle && x.quelle.zeile && !x.doppelt && backendAb("2.6"))
             stunden = '<button type="button" class="zeit-knopf" title="Stunden an diesem Tag ändern" data-a="' + aktionen.push({ typ: "tag", x: x }) + '">' + (x.stundenOffen ? "–" : std(x.netto)) + " <span>✎</span></button>";
-          return '<div class="tag' + cls + (x.korrektur || x.fahrzeugAlt || x.zeitAlt ? " korrigiert" : "") + (we ? " we" : "") + '">' + dtxt + "<div>" + mitte + notiz + '</div><div class="h">' + stunden + '</div><div class="tag-knoepfe">' + knoepfe + "</div></div>";
+          // Datum anklicken: Arbeitszeit → anderer Tag (ab 2.8), Urlaub/Krank → Zeitraum (ab 2.7)
+          const datumKlick = !x.doppelt && (x.art === "arbeit" ? x.zeile && backendAb("2.8") : x.quelle && x.quelle.zeile && backendAb("2.7"));
+          const dZelle = datumKlick ? '<button type="button" class="datum-knopf" title="' + (x.art === "arbeit" ? "Tag ändern (falsches Datum)" : "Zeitraum ändern") + '" data-a="' + aktionen.push({ typ: x.art === "arbeit" ? "datum" : "zeitraum", x: x }) + '">' + dtxt.replace("</small></div>", ' <span class="stift">✎</span></small></div>') + "</button>" : dtxt;
+          return '<div class="tag' + cls + (x.korrektur || x.fahrzeugAlt || x.zeitAlt ? " korrigiert" : "") + (we ? " we" : "") + '">' + dZelle + "<div>" + mitte + notiz + '</div><div class="h">' + stunden + '</div><div class="tag-knoepfe">' + knoepfe + "</div></div>";
         }).join("");
       }).join("");
       $("rechts").innerHTML = '<div class="detail-kopf"><div class="ava" style="background:' + (p.inListe ? farbe(p.name) : "#94a3b8") + '">' + esc(initialen(p.name)) + '</div><div><strong>' + esc(p.name) + "</strong>" + (p.inListe ? (backendAb("2.6") ? "<br>" + knopf("+ Eintrag nachtragen", "nachtragen", { p: p, tag: bis }) : "") : '<span class="pill w">nicht in der Liste</span>' + (backendNeu() ? "<br>" + knopf("Namen zuordnen …", "zuordnen", { p: p }) : "")) + '</div><div class="gross">' + std(p.summe) + "<small>Std. netto " + esc(monatName(monat)) + "</small></div></div>" + kontoBox(p, knopf) + zeilen;
       document.querySelectorAll("#rechts [data-a]").forEach((b) => b.addEventListener("click", () => {
         const a = aktionen[+b.dataset.a - 1];
-        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular, zeit: zeitFormular, konto: kontoFormular, zuordnen: zuordnenFormular, tag: tagFormular, nachtragen: nachtragenFormular, zeitraum: zeitraumFormular })[a.typ](b, a.x);
+        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular, zeit: zeitFormular, datum: datumFormular, konto: kontoFormular, zuordnen: zuordnenFormular, tag: tagFormular, nachtragen: nachtragenFormular, zeitraum: zeitraumFormular })[a.typ](b, a.x);
       }));
     }
 
@@ -724,6 +729,13 @@
       sp.addEventListener("click", () => aktionSenden(Object.assign(basis(x), { aktion: "fahrzeug", fahrzeug: sel.value, altFz: x.fahrzeug, grund: f.querySelector(".k-g").value.trim() }),
         (r) => "Fahrzeug geändert: " + (r.alt || "ohne") + " → " + (r.neu || "ohne")));
       sel.focus();
+    }
+
+    // Datum angeklickt: dasselbe Formular, gleich im Feld „Tag“ (der Eintrag wandert danach an den richtigen Tag)
+    function datumFormular(knopf, x) {
+      zeitFormular(knopf, x);
+      const t = document.querySelector("#rechts .korr .k-tag");
+      if (t) { t.focus(); try { t.showPicker(); } catch (e) {} }
     }
 
     // Uhrzeit ändern: falsch gemeldete Zeit korrigieren; Brutto, Pause und Netto rechnet das Backend neu
