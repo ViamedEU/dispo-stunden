@@ -106,7 +106,9 @@
     .konto-feld.summe { background: var(--gruen-hell); } .konto-feld.summe b { color: #1f6b2b; } .konto-feld.summe.leise b { color: #4d8a57; }
     .konto-warn { margin-top: 0.5rem; font-size: 0.8rem; font-weight: 700; color: var(--gelb); }
     .konto-notiz { margin-top: 0.4rem; font-size: 0.78rem; color: var(--leise); }
-    .pill.ok { background: var(--gruen-hell); color: #1f6b2b; } .pill.nb { white-space: nowrap; }
+    .pill.ok { background: var(--gruen-hell); color: #1f6b2b; }
+    .team-knoepfe { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+    #links .korr { margin: 0.2rem 1rem 0.8rem; } .detail-kopf .tag-aktion { margin-top: 0.3rem; } .pill.nb { white-space: nowrap; }
     @media (max-width: 520px) { .konto-reihe { grid-template-columns: 1fr 1fr; } .konto-kopf { flex-wrap: wrap; }
       .tag { grid-template-columns: 64px minmax(0, 1fr) auto; } .tag-knoepfe { grid-column: 2 / -1; justify-content: flex-start; } .tag > div:empty { display: none; } }
     .karte { background: #fff; border-radius: 22px; box-shadow: var(--schatten); border: 1px solid #edf2ee; overflow: hidden; }
@@ -401,7 +403,8 @@
       const aktiv = alle.filter((m) => m.aktiv && passt(m)), weg = alle.filter((m) => !m.aktiv && passt(m));
       $("links").innerHTML = "<h2>Mitarbeiter <small>" + alle.filter((m) => m.aktiv).length + " aktiv · stehen in der Zeiterfassung zur Auswahl</small></h2>" +
         '<form class="team-form" id="team-form" autocomplete="off"><input id="neu-name" placeholder="Vor- und Nachname" aria-label="Name neuer Mitarbeiter" /><input id="neu-datev" placeholder="DATEV-Nr." inputmode="numeric" aria-label="DATEV-Nummer (optional)" /><button class="knopf-klein gruen" type="submit">+ Hinzufügen</button></form>' +
-        (aktiv.length ? aktiv.map((m) => teamZeile(m, '<button type="button" class="knopf-klein weg" data-op="entfernen" data-name="' + esc(m.name) + '">Entfernen</button>')).join("") : '<div class="leer">Kein Treffer.</div>') +
+        (aktiv.length ? aktiv.map((m) => teamZeile(m, '<div class="team-knoepfe">' + (backendNeu() ? '<button type="button" class="knopf-klein zurueck" data-op="umbenennen" data-name="' + esc(m.name) + '">Umbenennen</button>' : "") +
+          '<button type="button" class="knopf-klein weg" data-op="entfernen" data-name="' + esc(m.name) + '">Entfernen</button></div>')).join("") : '<div class="leer">Kein Treffer.</div>') +
         (weg.length ? '<h2 style="border-top:1px solid var(--linie)">Ausgeschieden <small>' + weg.length + "</small></h2>" + weg.map((m) => teamZeile(m, '<button type="button" class="knopf-klein zurueck" data-op="hinzufuegen" data-name="' + esc(m.name) + '">Wieder aufnehmen</button>')).join("") : "");
       $("team-form").addEventListener("submit", (ev) => {
         ev.preventDefault();
@@ -410,6 +413,7 @@
         mitarbeiterAktion("hinzufuegen", name, $("neu-datev").value.trim());
       });
       document.querySelectorAll("#links [data-op]").forEach((b) => b.addEventListener("click", () => {
+        if (b.dataset.op === "umbenennen") { umbenennenFormular(b, b.dataset.name); return; }
         if (b.dataset.op === "entfernen" && !b.classList.contains("sicher")) {   // zweiter Klick bestätigt
           b.classList.add("sicher"); b.textContent = "Wirklich entfernen?";
           setTimeout(() => { if (b.isConnected) { b.classList.remove("sicher"); b.textContent = "Entfernen"; } }, 6000);
@@ -418,13 +422,36 @@
         mitarbeiterAktion(b.dataset.op, b.dataset.name);
       }));
     }
-    async function mitarbeiterAktion(op, name, datev) {
+    // Name korrigieren (Tippfehler vom Steuerberater usw.): ändert die Liste und alle Einträge in der Tabelle
+    function umbenennenFormular(knopf, name) {
+      document.querySelectorAll(".korr").forEach((f) => f.remove());
+      const f = document.createElement("div");
+      f.className = "korr";
+      f.innerHTML = '<div class="korr-kopf">Name von <b>' + esc(name) + "</b> korrigieren. Alle Einträge in der Tabelle (Arbeitszeiten, Abzüge, Stundenkonto, auch frühere Monate) bekommen den neuen Namen. Steht der neue Name schon in der Liste, werden beide zusammengeführt.</div>" +
+        '<div class="korr-zeile einzeln"><label class="grund">Richtiger Name<input type="text" class="k-neu" value="' + esc(name) + '" /></label></div>' +
+        '<div class="korr-knoepfe"><button type="button" class="speichern">Namen ändern</button><button type="button" class="neben">Abbrechen</button></div>';
+      knopf.closest(".zeile").after(f);
+      const inp = f.querySelector(".k-neu");
+      f.querySelector(".neben").addEventListener("click", () => f.remove());
+      f.querySelector(".speichern").addEventListener("click", () => {
+        const neu = inp.value.trim().replace(/\s+/g, " ");
+        if (neu.split(" ").length < 2) { toast("Bitte Vor- und Nachnamen eingeben.", true); inp.focus(); return; }
+        if (neu === name) { f.remove(); return; }
+        mitarbeiterAktion("umbenennen", name, "", neu);
+      });
+      inp.focus(); inp.select();
+    }
+    async function mitarbeiterAktion(op, name, datev, neu) {
       $("laden").hidden = false;
       let r;
-      try { r = await apiPost({ aktion: "mitarbeiter", op: op, pin: speicherS("az_dispo_pin"), name: name, datev: datev || "" }); }
+      try { r = await apiPost({ aktion: "mitarbeiter", op: op, pin: speicherS("az_dispo_pin"), name: name, datev: datev || "", neu: neu || "" }); }
       catch (e) { r = { status: "error", message: "Keine Verbindung – nichts geändert." }; }
       $("laden").hidden = true;
-      if (r.status === "ok") {
+      if (r.status === "ok" && op === "umbenennen") {   // Einträge haben sich geändert: alles neu laden
+        if (gewaehlt && norm(gewaehlt.name) === norm(r.alt)) gewaehlt = { name: r.neu };
+        toast("Name geändert: " + r.alt + " → " + r.neu + " (" + r.eintraege + (r.eintraege === 1 ? " Eintrag)" : " Einträge)"));
+        await lade(speicherS("az_dispo_pin"));
+      } else if (r.status === "ok") {
         daten.mitarbeiterAlle = r.mitarbeiterAlle;
         daten.mitarbeiter = r.mitarbeiterAlle.filter((m) => m.aktiv).map((m) => ({ name: m.name, standort: "EU" }));
         auswerten(); zeichne();
@@ -498,10 +525,10 @@
           return '<div class="tag' + cls + (x.korrektur || x.fahrzeugAlt || x.zeitAlt ? " korrigiert" : "") + (we ? " we" : "") + '">' + dtxt + "<div>" + mitte + notiz + '</div><div class="h">' + stunden + '</div><div class="tag-knoepfe">' + knoepfe + "</div></div>";
         }).join("");
       }).join("");
-      $("rechts").innerHTML = '<div class="detail-kopf"><div class="ava" style="background:' + (p.inListe ? farbe(p.name) : "#94a3b8") + '">' + esc(initialen(p.name)) + '</div><div><strong>' + esc(p.name) + "</strong>" + (p.inListe ? "" : '<span class="pill w">nicht in der Liste</span>') + '</div><div class="gross">' + std(p.summe) + "<small>Std. netto " + esc(monatName(monat)) + "</small></div></div>" + kontoBox(p, knopf) + zeilen;
+      $("rechts").innerHTML = '<div class="detail-kopf"><div class="ava" style="background:' + (p.inListe ? farbe(p.name) : "#94a3b8") + '">' + esc(initialen(p.name)) + '</div><div><strong>' + esc(p.name) + "</strong>" + (p.inListe ? "" : '<span class="pill w">nicht in der Liste</span>' + (backendNeu() ? "<br>" + knopf("Namen zuordnen …", "zuordnen", { p: p }) : "")) + '</div><div class="gross">' + std(p.summe) + "<small>Std. netto " + esc(monatName(monat)) + "</small></div></div>" + kontoBox(p, knopf) + zeilen;
       document.querySelectorAll("#rechts [data-a]").forEach((b) => b.addEventListener("click", () => {
         const a = aktionen[+b.dataset.a - 1];
-        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular, zeit: zeitFormular, konto: kontoFormular })[a.typ](b, a.x);
+        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular, zeit: zeitFormular, konto: kontoFormular, zuordnen: zuordnenFormular })[a.typ](b, a.x);
       }));
     }
 
@@ -533,7 +560,7 @@
       document.querySelectorAll("#rechts .korr").forEach((f) => f.remove());
       const f = document.createElement("div");
       f.className = "korr"; f.innerHTML = html;
-      knopf.closest(".tag, .konto").after(f);
+      knopf.closest(".tag, .konto, .detail-kopf").after(f);
       f.querySelector(".neben").addEventListener("click", () => f.remove());
       return f;
     }
@@ -661,6 +688,18 @@
       inp.focus();
     }
 
+    // Selbst eingetippter / falsch geschriebener Name, der nicht in der Liste steht: allen Einträgen den richtigen Listennamen geben
+    function zuordnenFormular(knopf, x) {
+      const p = x.p, alle = (daten.mitarbeiterAlle || daten.mitarbeiter.map((m) => ({ name: m.name, aktiv: true }))).filter((m) => m.aktiv);
+      const f = formularOeffnen(knopf, '<div class="korr-kopf"><b>' + esc(p.name) + "</b> steht nicht in der Mitarbeiterliste. Wer ist das? Alle Einträge unter diesem Namen (auch frühere Monate) bekommen den gewählten Namen.</div>" +
+        '<div class="korr-zeile fahrzeug-zeile"><label>Mitarbeiter<select class="k-wer"><option value="">– bitte wählen –</option>' + alle.map((m) => '<option value="' + esc(m.name) + '">' + esc(m.name) + "</option>").join("") + "</select></label></div>" +
+        '<div class="korr-knoepfe"><button type="button" class="speichern" disabled>Zuordnen</button><button type="button" class="neben">Abbrechen</button></div>');
+      const sel = f.querySelector(".k-wer"), sp = f.querySelector(".speichern");
+      sel.addEventListener("change", () => { sp.disabled = !sel.value; });
+      sp.addEventListener("click", () => mitarbeiterAktion("umbenennen", p.name, "", sel.value));
+      sel.focus();
+    }
+
     // Monat abschließen: ausbezahlte Stunden aus der DATEV-Lohnabrechnung, der Rest geht als Übertrag in den nächsten Monat
     function kontoFormular(knopf, x) {
       const p = x.p, k = p.konto || {}, akt = k.aktuell, vorher = k.vorher, ist = rund(p.summe), nName = monatName(monatPlus(monat, 1));
@@ -767,6 +806,16 @@
           }
           if (b.aktion === "mitarbeiter") {
             const t = this.teamListe(), m = t.find((x) => norm(x.name) === norm(b.name));
+            if (b.op === "umbenennen") {
+              const neu = String(b.neu || "").trim().replace(/\s+/g, " "), ziel = t.find((x) => norm(x.name) === norm(neu));
+              if (neu.split(" ").length < 2) return ok({ status: "error", message: "Bitte Vor- und Nachnamen angeben." });
+              if (!m && !ziel) return ok({ status: "error", message: "„" + neu + "“ steht nicht in der Liste." });
+              const ende = ziel && ziel !== m ? ziel.name : neu, anzahl = this.daten("2026-10").eintraege.filter((x) => norm(x.name) === norm(b.name)).length;
+              if (m && ziel && ziel !== m) this.team = t.filter((x) => x !== m); else if (m) m.name = ende;
+              Object.keys(this.umbenannt).forEach((k) => { if (norm(this.umbenannt[k]) === norm(b.name)) this.umbenannt[k] = ende; });
+              this.umbenannt[norm(b.name)] = ende;
+              return ok({ status: "ok", alt: b.name, neu: ende, eintraege: anzahl, mitarbeiterAlle: this.team.slice().sort((a, c) => a.name.localeCompare(c.name, "de")) });
+            }
             if (b.op === "hinzufuegen") { if (m && m.aktiv) return ok({ status: "error", message: m.name + " steht schon in der Liste." }); if (m) m.aktiv = true; else t.push({ name: b.name, aktiv: true, datev: b.datev || "" }); }
             else if (m) m.aktiv = false;
             return ok({ status: "ok", mitarbeiterAlle: t.slice().sort((a, c) => a.name.localeCompare(c.name, "de")) });
@@ -775,7 +824,7 @@
         }, 500));
       },
       team: null,
-      korr: {}, fzAend: {}, zeitAend: {}, urlaubStd: { "Hanna Skizze|2026-10-05": 16 }, erledigt: [],
+      korr: {}, fzAend: {}, zeitAend: {}, umbenannt: {}, urlaubStd: { "Hanna Skizze|2026-10-05": 16 }, erledigt: [],
       konto: [{ monat: "2026-09", name: "Hanna Skizze", uebertragAlt: 0, stunden: 162.5, ausbezahlt: 155, uebertragNeu: 7.5, bemerkung: "laut Lohnabrechnung September", am: "05.10.2026 09:12 (Demo)" },
               { monat: "2026-09", name: "Jonas Prototyp", uebertragAlt: 0, stunden: 46, ausbezahlt: 43, uebertragNeu: 3, bemerkung: "Minijob-Grenze", am: "05.10.2026 09:15 (Demo)" }],
       kontoFuer(m) {
@@ -825,6 +874,7 @@
         }
         e.forEach((x, i) => {
           x.zeile = i + 2;
+          if (this.umbenannt[norm(x.name)]) x.name = this.umbenannt[norm(x.name)];
           if (x.art === "urlaub") { const st = this.urlaubStd[x.name + "|" + x.von]; if (st === undefined) { x.netto = 0; x.stundenOffen = true; } else x.netto = st; return; }
           if (x.art === "krank") { const st = this.urlaubStd[x.name + "|" + x.von]; if (st !== undefined) x.netto = st; return; }
           if (x.art !== "arbeit") return;
