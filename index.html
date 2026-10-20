@@ -92,6 +92,9 @@
     .korr-knoepfe .neben { background: var(--feld); color: var(--text); }
     .korr-knoepfe .aufheben { background: var(--rose-hell); color: var(--rose); margin-left: auto; }
     @media (max-width: 700px) { .korr-zeile { grid-template-columns: 1fr 1fr; } .korr-zeile .grund { grid-column: 1 / -1; } }
+    .korr-zeile:has(input[type="date"]) { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }   /* Datum braucht mehr Platz als Uhrzeit; Grund rutscht bei Bedarf in die nächste Zeile */
+    .korr-zeile:has(input[type="date"]) .grund { grid-column: span 2; }
+    @media (max-width: 700px) { .korr-zeile:has(input[type="date"]) { grid-template-columns: 1fr 1fr; } }
     .zeit-knopf { white-space: nowrap; border: none; background: none; font: inherit; font-weight: 800; color: var(--tinte); cursor: pointer; padding: 0.15rem 0.4rem; margin-left: -0.4rem; border-radius: 8px; }
     .zeit-knopf span { color: var(--leise); font-size: 0.75rem; font-weight: 700; }
     .zeit-knopf:hover { background: #e0ecff; color: #1d4ed8; } .zeit-knopf:hover span { color: #1d4ed8; }
@@ -128,8 +131,7 @@
     .antrag-kopf { display: flex; align-items: center; gap: 0.6rem; } .antrag-kopf b { color: var(--tinte); font-size: 1rem; } .antrag-kopf small { display: block; color: var(--leise); font-size: 0.74rem; }
     .antrag-kopf .pill { margin-left: auto; } .antrag-zr { font-weight: 800; color: var(--tinte); margin: 0.4rem 0 0.2rem; }
     .antrag-info { font-size: 0.82rem; color: var(--text); margin-top: 0.3rem; } .antrag-konf { font-size: 0.8rem; color: var(--gelb); margin-top: 0.3rem; }
-    .antrag .korr-zeile { margin-top: 0.6rem; grid-template-columns: 165px 165px minmax(0, 1fr); }
-    @media (max-width: 700px) { .antrag .korr-zeile { grid-template-columns: 1fr 1fr; } }
+    .antrag .korr-zeile { margin-top: 0.6rem; }
     .uplan-box { overflow-x: auto; padding: 0 1rem 1rem; }
     .uplan { display: grid; gap: 2px; align-items: center; font-size: 0.7rem; min-width: 720px; }
     .uplan .n { font-size: 0.8rem; font-weight: 700; color: var(--tinte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; padding-right: 0.4rem; }
@@ -925,7 +927,7 @@
       const f = formularOeffnen(knopf, '<div class="korr-kopf">Urlaub oder Krank für einen Mitarbeiter eintragen, z. B. Sommerferien, wenn er es nicht selbst in der App beantragt. Urlaub bekommt gleich die Stunden aus dem Durchschnitt und steht beim Mitarbeiter als genehmigt.</div>' +
         '<div class="korr-zeile fahrzeug-zeile"><label>Mitarbeiter<select class="p-wer"><option value="">– bitte wählen –</option>' + team.map((m) => '<option value="' + esc(m.name) + '"' + (m.name === vor.name ? " selected" : "") + ">" + esc(m.name) + "</option>").join("") + "</select></label>" +
         '<label>Art<select class="p-art"><option value="urlaub">Urlaub</option><option value="krank">Krank</option></select></label></div>' +
-        '<div class="korr-zeile" style="margin-top:.5rem;grid-template-columns:165px 165px minmax(0,1fr)"><label>Von<input type="date" class="p-von" value="' + esc(vor.tag || "") + '" /></label><label>Bis<input type="date" class="p-bis" value="' + esc(vor.tag || "") + '" /></label>' +
+        '<div class="korr-zeile" style="margin-top:.5rem"><label>Von<input type="date" class="p-von" value="' + esc(vor.tag || "") + '" /></label><label>Bis<input type="date" class="p-bis" value="' + esc(vor.tag || "") + '" /></label>' +
         '<label class="grund">Grund <span style="font-weight:500">(optional)</span><input type="text" class="p-g" placeholder="z. B. Sommerferien" /></label></div>' +
         '<div class="korr-vorschau"></div><div class="korr-knoepfe"><button type="button" class="speichern">Eintragen</button><button type="button" class="neben">Abbrechen</button></div>');
       const $f = (c) => f.querySelector(c), vs = $f(".korr-vorschau");
