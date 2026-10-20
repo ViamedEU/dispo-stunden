@@ -584,12 +584,12 @@
               : ' <span class="pill">' + esc(x.fahrzeug || "ohne Fahrzeug") + "</span>";
             // Uhrzeit anklicken = Zeit ändern
             const zeit = !x.doppelt && x.zeile && backendNeu()
-              ? '<button type="button" class="zeit-knopf" title="Uhrzeit ändern" data-a="' + aktionen.push({ typ: "zeit", x: x }) + '">' + esc(x.beginn + "–" + x.ende) + " <span>✎</span></button>"
+              ? '<button type="button" class="zeit-knopf" title="Uhrzeit oder Tag ändern" data-a="' + aktionen.push({ typ: "zeit", x: x }) + '">' + esc(x.beginn + "–" + x.ende) + " <span>✎</span></button>"
               : "<b>" + esc(x.beginn + "–" + x.ende) + "</b>";
             const za = x.zeitAlt ? ' <span class="pill kor nb">gemeldet <span class="alt">' + esc(x.zeitAlt.alt) + "</span></span>" : "";
             mitte = zeit + za + abzug + fz + " " + flags;
             notiz = (x.notiz ? '<span class="notiz">' + esc(x.notiz) + "</span>" : "") +
-              (x.zeitAlt ? '<span class="notiz">Zeit geändert: ' + esc(x.zeitAlt.grund) + (x.zeitAlt.am ? " (" + esc(x.zeitAlt.am) + ")" : "") + "</span>" : "") +
+              (x.zeitAlt ? '<span class="notiz">' + (/^\d{2}\.\d{2}\. /.test(x.zeitAlt.alt) ? "Tag/Zeit geändert: " : "Zeit geändert: ") + esc(x.zeitAlt.grund) + (x.zeitAlt.am ? " (" + esc(x.zeitAlt.am) + ")" : "") + "</span>" : "") +
               (x.korrektur ? '<span class="notiz">Abzug: ' + esc(x.korrektur.grund) + (x.korrektur.am ? " (" + esc(x.korrektur.am) + ")" : "") + "</span>" : "") +
               (x.fahrzeugAlt ? '<span class="notiz">Fahrzeug geändert: ' + esc(x.fahrzeugAlt.grund) + (x.fahrzeugAlt.am ? " (" + esc(x.fahrzeugAlt.am) + ")" : "") + "</span>" : "");
             if (!x.doppelt && x.zeile) knoepfe = knopf(x.korrektur ? "Abzug ändern" : "Abzug", "abzug", x) + knopf("Fahrzeug", "fahrzeug", x);
@@ -723,26 +723,30 @@
 
     // Uhrzeit ändern: falsch gemeldete Zeit korrigieren; Brutto, Pause und Netto rechnet das Backend neu
     function zeitFormular(knopf, x) {
-      const f = formularOeffnen(knopf, '<div class="korr-kopf">Eingetragen: <b>' + esc(x.beginn + "–" + x.ende) + "</b> · " + std(x.nettoGemeldet) + " Std. netto" +
-        (x.zeitAlt ? " (gemeldet war " + esc(x.zeitAlt.alt) + ")" : "") + ". Richtige Uhrzeit eintragen:</div>" +
+      const mitTag = backendAb("2.8");   // ab 2.8: auch der Tag ist änderbar (Mitarbeiter hat sich im Datum vertan)
+      const f = formularOeffnen(knopf, '<div class="korr-kopf">Eingetragen: <b>' + kurz(x.datum) + " " + esc(x.beginn + "–" + x.ende) + "</b> · " + std(x.nettoGemeldet) + " Std. netto" +
+        (x.zeitAlt ? " (gemeldet war " + esc(x.zeitAlt.alt) + ")" : "") + ". Richtige " + (mitTag ? "Uhrzeit oder richtigen Tag" : "Uhrzeit") + " eintragen:</div>" +
+        (mitTag ? '<div class="korr-zeile fahrzeug-zeile" style="margin-bottom:.5rem"><label>Tag<input type="date" class="k-tag" value="' + esc(x.datum) + '" max="' + esc(daten.heute) + '" /></label><div class="hinweis-klein">Nur ändern, wenn sich der Mitarbeiter im Datum vertan hat.</div></div>' : "") +
         '<div class="korr-zeile"><label>Beginn<input type="time" class="k-von" value="' + esc(x.beginn) + '" /></label><label>Ende<input type="time" class="k-bis" value="' + esc(x.ende) + '" /></label>' +
         '<label class="grund">Grund<input type="text" class="k-g" placeholder="z. B. laut DMRZ, Tippfehler" /></label></div>' +
         '<div class="korr-vorschau"></div><div class="korr-knoepfe"><button type="button" class="speichern">Zeit speichern</button><button type="button" class="neben">Abbrechen</button></div>');
-      const von = f.querySelector(".k-von"), bis = f.querySelector(".k-bis"), g = f.querySelector(".k-g"), vs = f.querySelector(".korr-vorschau"), sp = f.querySelector(".speichern");
+      const von = f.querySelector(".k-von"), bis = f.querySelector(".k-bis"), g = f.querySelector(".k-g"), vs = f.querySelector(".korr-vorschau"), sp = f.querySelector(".speichern"), tagF = f.querySelector(".k-tag");
+      const tag = () => (tagF && tagF.value) || x.datum;
       function vorschau() {
         const fehler = (t) => { vs.innerHTML = '<span class="warn">' + t + "</span>"; sp.disabled = true; };
         if (!von.value || !bis.value) return fehler("Bitte Beginn und Ende eintragen.");
         if (minuten(bis.value) <= minuten(von.value)) return fehler("Das Ende muss nach dem Beginn liegen.");
-        if (von.value === x.beginn && bis.value === x.ende) { vs.textContent = ""; sp.disabled = true; return; }
+        if (tag() > daten.heute) return fehler("Der Tag liegt in der Zukunft.");
+        if (von.value === x.beginn && bis.value === x.ende && tag() === x.datum) { vs.textContent = ""; sp.disabled = true; return; }
         const n = nettoAus(von.value, bis.value), lz = x.leerzeit || 0;
-        vs.innerHTML = "Neu: " + esc(von.value + "–" + bis.value) + " → <b>" + std(lz ? rund(n - lz) : n) + " Std. netto</b>" + (lz ? " (" + std(n) + " − " + std(lz) + " Abzug)" : "") + " · bisher " + std(x.netto);
+        vs.innerHTML = "Neu: " + (tag() !== x.datum ? "<b>" + kurz(tag()) + "</b> " : "") + esc(von.value + "–" + bis.value) + " → <b>" + std(lz ? rund(n - lz) : n) + " Std. netto</b>" + (lz ? " (" + std(n) + " − " + std(lz) + " Abzug)" : "") + " · bisher " + std(x.netto);
         sp.disabled = false;
       }
-      [von, bis].forEach((i) => i.addEventListener("input", vorschau)); vorschau();
+      [von, bis, tagF].filter(Boolean).forEach((i) => i.addEventListener("input", vorschau)); vorschau();
       sp.addEventListener("click", () => {
         if (!g.value.trim()) { g.focus(); toast("Bitte einen Grund angeben.", true); return; }
-        aktionSenden(Object.assign(basis(x), { aktion: "zeit", neuBeginn: von.value, neuEnde: bis.value, grund: g.value.trim() }),
-          (r) => "Zeit geändert: " + r.beginn + "–" + r.ende + " (" + std(r.nettoAlt) + " → " + std(r.netto) + " Std.)");
+        aktionSenden(Object.assign(basis(x), { aktion: "zeit", neuBeginn: von.value, neuEnde: bis.value, grund: g.value.trim() }, tagF && tag() !== x.datum ? { neuDatum: tag() } : {}),
+          (r) => (r.datum && r.datum !== x.datum ? "Tag geändert: " + kurz(x.datum) + " → " + kurz(r.datum) + ", " : "Zeit geändert: ") + r.beginn + "–" + r.ende + " (" + std(r.nettoAlt) + " → " + std(r.netto) + " Std.)");
       });
       von.focus();
     }
@@ -1053,12 +1057,12 @@
             return ok({ status: "ok", alt: alt, neu: b.fahrzeug });
           }
           if (b.aktion === "zeit") {
-            const altKey = [b.name, b.datum, b.beginn, b.ende].join("|"), neuKey = [b.name, b.datum, b.neuBeginn, b.neuEnde].join("|");
+            const tag = b.neuDatum || b.datum, altKey = [b.name, b.datum, b.beginn, b.ende].join("|"), neuKey = [b.name, tag, b.neuBeginn, b.neuEnde].join("|");
             const orig = this.zeitAend[altKey] ? this.zeitAend[altKey].orig : altKey;   // zweimal geändert: die erste Meldung zählt
             delete this.zeitAend[altKey];
-            if (orig !== neuKey) this.zeitAend[neuKey] = { orig: orig, beginn: b.neuBeginn, ende: b.neuEnde, grund: b.grund };
+            if (orig !== neuKey) this.zeitAend[neuKey] = { orig: orig, datum: tag, beginn: b.neuBeginn, ende: b.neuEnde, grund: b.grund };
             ["korr", "fzAend"].forEach((t) => { if (this[t][altKey]) { this[t][neuKey] = this[t][altKey]; delete this[t][altKey]; } });   // Abzug und Fahrzeug wandern mit
-            return ok({ status: "ok", beginn: b.neuBeginn, ende: b.neuEnde, netto: nettoAus(b.neuBeginn, b.neuEnde), nettoAlt: nettoAus(b.beginn, b.ende) });
+            return ok({ status: "ok", datum: tag, beginn: b.neuBeginn, ende: b.neuEnde, netto: nettoAus(b.neuBeginn, b.neuEnde), nettoAlt: nettoAus(b.beginn, b.ende) });
           }
           if (b.aktion === "durchschnitt") {
             const tag = 86400000, fBis = isoVon(new Date(alsDatum(b.von).getTime() - tag)), fVon = isoVon(new Date(alsDatum(b.von).getTime() - 91 * tag));
@@ -1145,7 +1149,7 @@
             else if (m) m.aktiv = false;
             return ok({ status: "ok", mitarbeiterAlle: t.slice().sort((a, c) => a.name.localeCompare(c.name, "de")) });
           }
-          ok(Object.assign({ status: "ok", version: "2.7", monat: b.monat, heute: "2026-10-16", stand: new Date().toISOString() }, this.daten(b.monat)));
+          ok(Object.assign({ status: "ok", version: "2.8", monat: b.monat, heute: "2026-10-16", stand: new Date().toISOString() }, this.daten(b.monat)));
         }, 500));
       },
       team: null,
@@ -1217,7 +1221,7 @@
           if (x.art === "krank") { const st = this.urlaubStd[x.name + "|" + x.von]; if (st !== undefined) x.netto = st; return; }
           if (x.art !== "arbeit") return;
           const zn = Object.values(this.zeitAend).find((t) => t.orig === [x.name, x.datum, x.beginn, x.ende].join("|"));
-          if (zn) { x.zeitAlt = { alt: x.beginn + "–" + x.ende, grund: zn.grund, am: "20.10.2026 (Demo)" }; x.beginn = zn.beginn; x.ende = zn.ende; x.netto = nettoAus(zn.beginn, zn.ende); }
+          if (zn) { x.zeitAlt = { alt: (zn.datum && zn.datum !== x.datum ? x.datum.slice(8, 10) + "." + x.datum.slice(5, 7) + ". " : "") + x.beginn + "–" + x.ende, grund: zn.grund, am: "20.10.2026 (Demo)" }; x.datum = zn.datum || x.datum; x.beginn = zn.beginn; x.ende = zn.ende; x.netto = nettoAus(zn.beginn, zn.ende); }
           x.nettoGemeldet = x.netto; x.leerzeit = 0;
           const key = [x.name, x.datum, x.beginn, x.ende].join("|"), k = this.korr[key], fa = this.fzAend[key];
           if (k) { x.leerzeit = k.abzug; x.netto = Math.round((x.nettoGemeldet - k.abzug) * 100) / 100; x.korrektur = { abzugszeit: k.abzugszeit, grund: k.grund, abzug: k.abzug, am: "18.10.2026 (Demo)" }; }
