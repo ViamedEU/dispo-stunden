@@ -92,6 +92,23 @@
     .korr-knoepfe .neben { background: var(--feld); color: var(--text); }
     .korr-knoepfe .aufheben { background: var(--rose-hell); color: var(--rose); margin-left: auto; }
     @media (max-width: 700px) { .korr-zeile { grid-template-columns: 1fr 1fr; } .korr-zeile .grund { grid-column: 1 / -1; } }
+    .zeit-knopf { white-space: nowrap; border: none; background: none; font: inherit; font-weight: 800; color: var(--tinte); cursor: pointer; padding: 0.15rem 0.4rem; margin-left: -0.4rem; border-radius: 8px; }
+    .zeit-knopf span { color: var(--leise); font-size: 0.75rem; font-weight: 700; }
+    .zeit-knopf:hover { background: #e0ecff; color: #1d4ed8; } .zeit-knopf:hover span { color: #1d4ed8; }
+    .ds-box { font-size: 0.85rem; color: var(--text); background: var(--blau-hell); border-radius: 12px; padding: 0.6rem 0.8rem; margin-bottom: 0.7rem; line-height: 1.5; }
+    .ds-box:empty { display: none; } .ds-box .link-plus { padding: 0 0 0 0.3rem; }
+    .konto { margin: 0.8rem 1rem; padding: 0.8rem 0.9rem; border-radius: 16px; background: #fff; border: 1px solid var(--linie); box-shadow: var(--schatten); }
+    .konto-kopf { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; } .konto-kopf b { color: var(--tinte); } .konto-kopf .tag-aktion { margin-left: auto; }
+    .konto-reihe { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; }
+    .konto-feld { background: var(--feld); border-radius: 12px; padding: 0.45rem 0.6rem; }
+    .konto-feld small { display: block; font-size: 0.68rem; font-weight: 700; color: var(--leise); }
+    .konto-feld b { font-size: 1.02rem; color: var(--tinte); } .konto-feld.leise b { color: var(--leise); font-weight: 700; }
+    .konto-feld.summe { background: var(--gruen-hell); } .konto-feld.summe b { color: #1f6b2b; } .konto-feld.summe.leise b { color: #4d8a57; }
+    .konto-warn { margin-top: 0.5rem; font-size: 0.8rem; font-weight: 700; color: var(--gelb); }
+    .konto-notiz { margin-top: 0.4rem; font-size: 0.78rem; color: var(--leise); }
+    .pill.ok { background: var(--gruen-hell); color: #1f6b2b; } .pill.nb { white-space: nowrap; }
+    @media (max-width: 520px) { .konto-reihe { grid-template-columns: 1fr 1fr; } .konto-kopf { flex-wrap: wrap; }
+      .tag { grid-template-columns: 64px minmax(0, 1fr) auto; } .tag-knoepfe { grid-column: 2 / -1; justify-content: flex-start; } .tag > div:empty { display: none; } }
     .karte { background: #fff; border-radius: 22px; box-shadow: var(--schatten); border: 1px solid #edf2ee; overflow: hidden; }
     #rechts { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
     .karte h2 { font-size: 0.95rem; padding: 0.9rem 1rem 0.6rem; color: var(--tinte); display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
@@ -221,6 +238,9 @@
     function initialen(n) { const t = n.split(" ").filter(Boolean); return ((t[0] || "?")[0] + (t.length > 1 ? t[t.length - 1][0] : "")).toUpperCase(); }
     function farbe(n) { let h = 0; for (const c of n) h = (h * 31 + c.charCodeAt(0)) >>> 0; return FARBEN[h % FARBEN.length]; }
     function monatText(m) { const t = m.split("-"); return new Date(+t[0], +t[1] - 1, 1).toLocaleDateString("de-DE", { month: "long", year: "numeric" }); }
+    function monatName(m) { return monatText(m).split(" ")[0]; }
+    // Uhrzeit ändern, Durchschnitt und Stundenkonto gibt es erst ab Backend 2.5 (ältere Versionen speichern unbekannte Aktionen als Arbeitszeit)
+    function backendNeu() { if (DEMO) return true; const v = String((daten && daten.version) || "0.0").split(".").map(Number); return v[0] > 2 || (v[0] === 2 && v[1] >= 5); }
     function monatPlus(m, n) { const t = m.split("-"); const d = new Date(+t[0], +t[1] - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
     function speicherS(k, v) { try { if (v === undefined) return sessionStorage.getItem(k); if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) { return null; } }
 
@@ -263,7 +283,7 @@
         if (e.art === "arbeit") {
           const schluessel = norm(e.name) + "|" + e.datum + "|" + e.beginn + "|" + e.ende;
           const x = { art: "arbeit", beginn: e.beginn, ende: e.ende, fahrzeug: e.fahrzeug, netto: e.netto, notiz: e.notiz, flags: [],
-                      zeile: e.zeile, name: e.name, datum: e.datum, nettoGemeldet: e.nettoGemeldet != null ? e.nettoGemeldet : e.netto, leerzeit: e.leerzeit || 0, korrektur: e.korrektur || null, fahrzeugAlt: e.fahrzeugAlt || null };
+                      zeile: e.zeile, name: e.name, datum: e.datum, nettoGemeldet: e.nettoGemeldet != null ? e.nettoGemeldet : e.netto, leerzeit: e.leerzeit || 0, korrektur: e.korrektur || null, fahrzeugAlt: e.fahrzeugAlt || null, zeitAlt: e.zeitAlt || null };
           // Doppelt = gleiche Person, gleicher Tag, genau gleiche Zeit. Mehrere Fahrten nacheinander am selben Tag sind normal.
           if (gesehen.has(schluessel)) { x.doppelt = true; x.flags.push("doppelt"); const g = norm(e.name) + "|" + e.datum; (doppelte[g] = doppelte[g] || { p, datum: e.datum, zeiten: [] }).zeiten.push(e.beginn + "–" + e.ende); }
           else { gesehen.add(schluessel); p.summe += e.netto; }
@@ -307,7 +327,8 @@
       const erledigt = new Set(daten.erledigt || []);
       hinweise.forEach((h) => { h.key = [h.typ, norm(h.p.name), h.datum || "", h.detail || ""].join("|"); h.erledigt = erledigt.has(h.key); });
       personen = [...liste.values()];
-      personen.forEach((p) => { p.flags = hinweise.filter((h) => h.p === p && !h.erledigt).length; });
+      const konto = new Map((daten.konto || []).map((k) => [norm(k.name), k]));
+      personen.forEach((p) => { p.flags = hinweise.filter((h) => h.p === p && !h.erledigt).length; p.konto = konto.get(norm(p.name)) || null; });
       if (gewaehlt) gewaehlt = personen.find((p) => norm(p.name) === norm(gewaehlt.name)) || null;
     }
 
@@ -344,7 +365,9 @@
         $("links").innerHTML = "<h2>" + esc(monatText(monat)) + " <small>" + mit.length + " Mitarbeiter · nach Stunden</small></h2>" + (mit.length ? mit.map((p) => {
           const tage = Object.values(p.tage), arbeit = tage.filter((t) => t.some((x) => x.art === "arbeit")).length;
           const u = tage.filter((t) => t.some((x) => x.art === "urlaub")).length, k = tage.filter((t) => t.some((x) => x.art === "krank")).length;
-          return zeile(p, std(p.summe) + "<small>Std.</small>", '<span class="pill">' + arbeit + " Tage</span>" + (u ? '<span class="pill u">Urlaub ' + u + "</span>" : "") + (k ? '<span class="pill k">Krank ' + k + "</span>" : "") + (p.flags ? '<span class="pill w">' + p.flags + (p.flags === 1 ? " Hinweis" : " Hinweise") + "</span>" : ""), Math.round(p.summe / max * 100));
+          const ue = p.konto && p.konto.vorher && !p.konto.aktuell ? p.konto.vorher.uebertragNeu : 0;
+          return zeile(p, std(p.summe) + "<small>Std.</small>", '<span class="pill">' + arbeit + " Tage</span>" + (u ? '<span class="pill u">Urlaub ' + u + "</span>" : "") + (k ? '<span class="pill k">Krank ' + k + "</span>" : "") + (p.flags ? '<span class="pill w">' + p.flags + (p.flags === 1 ? " Hinweis" : " Hinweise") + "</span>" : "") +
+            (p.konto && p.konto.aktuell ? '<span class="pill ok">abgeschlossen</span>' : ue ? '<span class="pill">Übertrag ' + (ue > 0 ? "+" : "−") + std(Math.abs(ue)) + "</span>" : ""), Math.round(p.summe / max * 100));
         }).join("") : '<div class="leer">Keine Einträge in diesem Monat.</div>');
       } else if (ansicht === "heute") {
         if (!laufend) { $("links").innerHTML = '<div class="leer">„Heute“ gibt es nur im laufenden Monat.</div>'; bindeKlicks(); return; }
@@ -439,7 +462,6 @@
       if (!p) { $("rechts").innerHTML = '<div class="leer">Mitarbeiter anklicken, um die einzelnen Tage zu sehen.</div>'; return; }
       const anfang = monat + "-01", letzter = isoVon(new Date(+monat.slice(0, 4), +monat.slice(5, 7), 0));
       const bis = monat === daten.heute.slice(0, 7) ? daten.heute : letzter;
-      const urlaubGezeigt = new Set();
       const knopf = (text, typ, x) => '<button type="button" class="tag-aktion" data-a="' + aktionen.push({ typ: typ, x: x }) + '">' + text + "</button>";
       const zeilen = tageZwischen(anfang, bis).map((t) => {   // aufsteigend: der 1. steht oben
         const es = p.tage[t] || [], we = !werktag(t), d = alsDatum(t);
@@ -454,8 +476,14 @@
               : x.leerzeit > 0 ? ' <span class="pill">−' + std(x.leerzeit) + " Leerzeit</span>" : "";
             const fz = x.fahrzeugAlt ? ' <span class="pill kor"><span class="alt">' + esc(x.fahrzeugAlt.alt || "ohne") + "</span> → " + esc(x.fahrzeug || "ohne Fahrzeug") + "</span>"
               : ' <span class="pill">' + esc(x.fahrzeug || "ohne Fahrzeug") + "</span>";
-            mitte = "<b>" + esc(x.beginn + "–" + x.ende) + "</b>" + abzug + fz + " " + flags;
+            // Uhrzeit anklicken = Zeit ändern
+            const zeit = !x.doppelt && x.zeile && backendNeu()
+              ? '<button type="button" class="zeit-knopf" title="Uhrzeit ändern" data-a="' + aktionen.push({ typ: "zeit", x: x }) + '">' + esc(x.beginn + "–" + x.ende) + " <span>✎</span></button>"
+              : "<b>" + esc(x.beginn + "–" + x.ende) + "</b>";
+            const za = x.zeitAlt ? ' <span class="pill kor nb">gemeldet <span class="alt">' + esc(x.zeitAlt.alt) + "</span></span>" : "";
+            mitte = zeit + za + abzug + fz + " " + flags;
             notiz = (x.notiz ? '<span class="notiz">' + esc(x.notiz) + "</span>" : "") +
+              (x.zeitAlt ? '<span class="notiz">Zeit geändert: ' + esc(x.zeitAlt.grund) + (x.zeitAlt.am ? " (" + esc(x.zeitAlt.am) + ")" : "") + "</span>" : "") +
               (x.korrektur ? '<span class="notiz">Abzug: ' + esc(x.korrektur.grund) + (x.korrektur.am ? " (" + esc(x.korrektur.am) + ")" : "") + "</span>" : "") +
               (x.fahrzeugAlt ? '<span class="notiz">Fahrzeug geändert: ' + esc(x.fahrzeugAlt.grund) + (x.fahrzeugAlt.am ? " (" + esc(x.fahrzeugAlt.am) + ")" : "") + "</span>" : "");
             if (!x.doppelt && x.zeile) knoepfe = knopf(x.korrektur ? "Abzug ändern" : "Abzug", "abzug", x) + knopf("Fahrzeug", "fahrzeug", x);
@@ -463,17 +491,38 @@
             const q = x.quelle || {};
             mitte = (x.art === "urlaub" ? '<span class="pill u">Urlaub</span>' : '<span class="pill k">Krank</span>') +
               (q.von ? ' <span class="pill">' + kurz(q.von) + " – " + kurz(q.bis) + "</span>" : "") + (x.stundenOffen ? ' <span class="pill w">Stunden fehlen</span>' : "") + " " + flags;
-            if (x.art === "urlaub" && q.zeile && !x.doppelt && !urlaubGezeigt.has(q.zeile)) { urlaubGezeigt.add(q.zeile); knoepfe = knopf(x.stundenOffen ? "Stunden eintragen" : "Stunden ändern", "urlaub", x); }
+            // jeder Urlaubs-/Krankheitstag hat den Knopf; die Stunden gelten für den ganzen Zeitraum (Krank erst ab Backend 2.5)
+            if (q.zeile && !x.doppelt && (x.art === "urlaub" || backendNeu())) knoepfe = knopf(x.stundenOffen ? "Stunden eintragen" : "Stunden ändern", "urlaub", x);
           }
           const stunden = x.stundenOffen ? '<span style="color:var(--leise)">–</span>' : x.doppelt ? '<s style="color:var(--leise)">' + std(x.netto) + "</s>" : std(x.netto);
-          return '<div class="tag' + cls + (x.korrektur || x.fahrzeugAlt ? " korrigiert" : "") + (we ? " we" : "") + '">' + dtxt + "<div>" + mitte + notiz + '</div><div class="h">' + stunden + '</div><div class="tag-knoepfe">' + knoepfe + "</div></div>";
+          return '<div class="tag' + cls + (x.korrektur || x.fahrzeugAlt || x.zeitAlt ? " korrigiert" : "") + (we ? " we" : "") + '">' + dtxt + "<div>" + mitte + notiz + '</div><div class="h">' + stunden + '</div><div class="tag-knoepfe">' + knoepfe + "</div></div>";
         }).join("");
       }).join("");
-      $("rechts").innerHTML = '<div class="detail-kopf"><div class="ava" style="background:' + (p.inListe ? farbe(p.name) : "#94a3b8") + '">' + esc(initialen(p.name)) + '</div><div><strong>' + esc(p.name) + "</strong>" + (p.inListe ? "" : '<span class="pill w">nicht in der Liste</span>') + '</div><div class="gross">' + std(p.summe) + "<small>Std. netto " + esc(monatText(monat).split(" ")[0]) + "</small></div></div>" + zeilen;
+      $("rechts").innerHTML = '<div class="detail-kopf"><div class="ava" style="background:' + (p.inListe ? farbe(p.name) : "#94a3b8") + '">' + esc(initialen(p.name)) + '</div><div><strong>' + esc(p.name) + "</strong>" + (p.inListe ? "" : '<span class="pill w">nicht in der Liste</span>') + '</div><div class="gross">' + std(p.summe) + "<small>Std. netto " + esc(monatName(monat)) + "</small></div></div>" + kontoBox(p, knopf) + zeilen;
       document.querySelectorAll("#rechts [data-a]").forEach((b) => b.addEventListener("click", () => {
         const a = aktionen[+b.dataset.a - 1];
-        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular })[a.typ](b, a.x);
+        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular, zeit: zeitFormular, konto: kontoFormular })[a.typ](b, a.x);
       }));
+    }
+
+    // Stundenkonto: Übertrag aus dem Vormonat + Stunden im Monat − ausbezahlt (DATEV-Lohnabrechnung) = Übertrag in den nächsten Monat
+    const mitVorzeichen = (x) => (x > 0.004 ? "+" : x < -0.004 ? "−" : "") + std(Math.abs(x));
+    function kontoBox(p, knopf) {
+      if (!backendNeu()) return "";
+      const k = p.konto || {}, vorher = k.vorher, akt = k.aktuell, ist = rund(p.summe);
+      const alt = akt ? akt.uebertragAlt : vorher ? vorher.uebertragNeu : 0;
+      const feld = (titel, wert, cls) => '<div class="konto-feld' + (cls ? " " + cls : "") + '"><small>' + titel + "</small><b>" + wert + "</b></div>";
+      return '<div class="konto"><div class="konto-kopf"><b>Stundenkonto</b>' +
+        (akt ? '<span class="pill ok">' + esc(monatName(monat)) + " abgeschlossen</span>" : '<span class="pill">' + esc(monatName(monat)) + " offen</span>") +
+        knopf(akt ? "Abschluss ändern" : "Monat abschließen", "konto", { p: p }) + "</div>" +
+        '<div class="konto-reihe">' +
+          feld("Übertrag " + esc(vorher ? monatName(vorher.monat) : "Vormonat"), mitVorzeichen(alt)) +
+          feld("+ Stunden " + esc(monatName(monat)), std(akt ? akt.stunden : ist)) +
+          feld("− ausbezahlt", akt ? std(akt.ausbezahlt) : "offen", akt ? "" : "leise") +
+          feld("= Übertrag " + esc(monatName(monatPlus(monat, 1))), mitVorzeichen(akt ? akt.uebertragNeu : rund(alt + ist)), akt ? "summe" : "summe leise") +
+        "</div>" +
+        (akt && Math.abs(akt.stunden - ist) >= 0.01 ? '<div class="konto-warn">Die Stunden haben sich seit dem Abschluss geändert (abgeschlossen ' + std(akt.stunden) + ", jetzt " + std(ist) + " Std.). Bitte neu abschließen.</div>" : "") +
+        (akt && (akt.bemerkung || akt.am) ? '<div class="konto-notiz">' + esc([akt.bemerkung, akt.am ? "gespeichert " + akt.am : ""].filter(Boolean).join(" · ")) + "</div>" : "") + "</div>";
     }
 
     // ---------- Abzug, Fahrzeug, Urlaubsstunden ----------
@@ -484,7 +533,7 @@
       document.querySelectorAll("#rechts .korr").forEach((f) => f.remove());
       const f = document.createElement("div");
       f.className = "korr"; f.innerHTML = html;
-      knopf.closest(".tag").after(f);
+      knopf.closest(".tag, .konto").after(f);
       f.querySelector(".neben").addEventListener("click", () => f.remove());
       return f;
     }
@@ -562,16 +611,82 @@
       sel.focus();
     }
 
-    // Urlaubsstunden: die App trägt nur den Zeitraum ein, die Stunden setzt die Dispo (z. B. Minijob 2 Std./Tag)
+    // Uhrzeit ändern: falsch gemeldete Zeit korrigieren; Brutto, Pause und Netto rechnet das Backend neu
+    function zeitFormular(knopf, x) {
+      const f = formularOeffnen(knopf, '<div class="korr-kopf">Eingetragen: <b>' + esc(x.beginn + "–" + x.ende) + "</b> · " + std(x.nettoGemeldet) + " Std. netto" +
+        (x.zeitAlt ? " (gemeldet war " + esc(x.zeitAlt.alt) + ")" : "") + ". Richtige Uhrzeit eintragen:</div>" +
+        '<div class="korr-zeile"><label>Beginn<input type="time" class="k-von" value="' + esc(x.beginn) + '" /></label><label>Ende<input type="time" class="k-bis" value="' + esc(x.ende) + '" /></label>' +
+        '<label class="grund">Grund<input type="text" class="k-g" placeholder="z. B. laut DMRZ, Tippfehler" /></label></div>' +
+        '<div class="korr-vorschau"></div><div class="korr-knoepfe"><button type="button" class="speichern">Zeit speichern</button><button type="button" class="neben">Abbrechen</button></div>');
+      const von = f.querySelector(".k-von"), bis = f.querySelector(".k-bis"), g = f.querySelector(".k-g"), vs = f.querySelector(".korr-vorschau"), sp = f.querySelector(".speichern");
+      function vorschau() {
+        const fehler = (t) => { vs.innerHTML = '<span class="warn">' + t + "</span>"; sp.disabled = true; };
+        if (!von.value || !bis.value) return fehler("Bitte Beginn und Ende eintragen.");
+        if (minuten(bis.value) <= minuten(von.value)) return fehler("Das Ende muss nach dem Beginn liegen.");
+        if (von.value === x.beginn && bis.value === x.ende) { vs.textContent = ""; sp.disabled = true; return; }
+        const n = nettoAus(von.value, bis.value), lz = x.leerzeit || 0;
+        vs.innerHTML = "Neu: " + esc(von.value + "–" + bis.value) + " → <b>" + std(lz ? rund(n - lz) : n) + " Std. netto</b>" + (lz ? " (" + std(n) + " − " + std(lz) + " Abzug)" : "") + " · bisher " + std(x.netto);
+        sp.disabled = false;
+      }
+      [von, bis].forEach((i) => i.addEventListener("input", vorschau)); vorschau();
+      sp.addEventListener("click", () => {
+        if (!g.value.trim()) { g.focus(); toast("Bitte einen Grund angeben.", true); return; }
+        aktionSenden(Object.assign(basis(x), { aktion: "zeit", neuBeginn: von.value, neuEnde: bis.value, grund: g.value.trim() }),
+          (r) => "Zeit geändert: " + r.beginn + "–" + r.ende + " (" + std(r.nettoAlt) + " → " + std(r.netto) + " Std.)");
+      });
+      von.focus();
+    }
+
+    // Urlaubs-/Krankstunden: bei Urlaub trägt die App nur den Zeitraum ein, die Stunden setzt die Dispo; Krank rechnet das Backend vor.
+    // Vorschlag: Ø der letzten 13 Wochen je Werktag (Minijob), höchstens 8 Std. (Urlaub) bzw. 5 Std. (Krank) je Tag
     function urlaubFormular(knopf, x) {
-      const q = x.quelle, tage = tageZwischen(q.von, q.bis).filter(werktag).length;
-      const f = formularOeffnen(knopf, '<div class="korr-kopf">Urlaub <b>' + kurz(q.von) + " – " + kurz(q.bis) + "</b> (" + tage + (tage === 1 ? " Werktag" : " Werktage") + "). Urlaubsstunden für den ganzen Zeitraum:</div>" +
-        '<div class="korr-zeile fahrzeug-zeile"><label>Stunden gesamt<input type="number" class="k-std" min="0" step="0.25" inputmode="decimal" value="' + (x.stundenOffen ? "" : rund(q.netto)) + '" /></label><div class="hinweis-klein">z. B. ' + tage + " × 8 = " + tage * 8 + " Std. bei Vollzeit; bei Minijob die vereinbarten Stunden. Leer = noch offen.</div></div>" +
+      const q = x.quelle, tage = tageZwischen(q.von, q.bis).filter(werktag).length, art = x.art === "krank" ? "Krank" : "Urlaub";
+      const f = formularOeffnen(knopf, '<div class="korr-kopf">' + art + " <b>" + kurz(q.von) + " – " + kurz(q.bis) + "</b> (" + tage + (tage === 1 ? " Werktag" : " Werktage") + "). " + (art === "Krank" ? "Krankstunden" : "Urlaubsstunden") + " für den ganzen Zeitraum:</div>" +
+        '<div class="ds-box">' + (backendNeu() ? "Durchschnitt der letzten 13 Wochen wird berechnet …" : "") + "</div>" +
+        '<div class="korr-zeile fahrzeug-zeile"><label>Stunden gesamt<input type="number" class="k-std" min="0" step="0.25" inputmode="decimal" value="' + (x.stundenOffen ? "" : rund(q.netto)) + '" /></label><div class="hinweis-klein">Von Hand änderbar. Leer = noch offen.</div></div>' +
         '<div class="korr-knoepfe"><button type="button" class="speichern">Stunden speichern</button><button type="button" class="neben">Abbrechen</button></div>');
-      const inp = f.querySelector(".k-std");
+      const inp = f.querySelector(".k-std"), box = f.querySelector(".ds-box");
+      if (backendNeu()) apiPost({ aktion: "durchschnitt", pin: speicherS("az_dispo_pin"), name: q.name, von: q.von, bis: q.bis, art: x.art }).then((r) => {
+        if (!box.isConnected) return;
+        if (r.status !== "ok") { box.textContent = r.message || "Durchschnitt nicht verfügbar."; return; }
+        if (!r.werktage) { box.textContent = "In den 13 Wochen davor gibt es keine Einträge. Bitte die Stunden von Hand eintragen."; return; }
+        box.innerHTML = "Letzte 13 Wochen (" + kurz(r.von) + " – " + kurz(r.bis) + "): " + std(r.stunden) + " Std. an " + r.werktage + " Werktagen = Ø " + std(r.durchschnitt) + " Std./Tag" +
+          (r.gedeckelt ? " → höchstens " + r.max + " Std./Tag" : "") + "<br>Vorschlag: " + r.tage + " × " + std(r.proTag) + " = <b>" + std(r.vorschlag) + " Std.</b>" +
+          '<button type="button" class="link-plus ds-nehmen">Übernehmen</button>';
+        box.querySelector(".ds-nehmen").addEventListener("click", () => { inp.value = r.vorschlag; inp.focus(); });
+        if (x.stundenOffen && inp.value === "") inp.value = r.vorschlag;
+      }).catch(() => { if (box.isConnected) box.textContent = "Durchschnitt nicht verfügbar (keine Verbindung)."; });
       f.querySelector(".speichern").addEventListener("click", () => aktionSenden({ aktion: "urlaubstunden", pin: speicherS("az_dispo_pin"), zeile: q.zeile, name: q.name, von: q.von, stunden: inp.value },
-        (r) => r.stunden === "" ? "Urlaubsstunden entfernt" : "Urlaubsstunden gespeichert: " + std(r.stunden) + " Std."));
+        (r) => (art === "Krank" ? "Krankstunden" : "Urlaubsstunden") + (r.stunden === "" ? " entfernt" : " gespeichert: " + std(r.stunden) + " Std.")));
       inp.focus();
+    }
+
+    // Monat abschließen: ausbezahlte Stunden aus der DATEV-Lohnabrechnung, der Rest geht als Übertrag in den nächsten Monat
+    function kontoFormular(knopf, x) {
+      const p = x.p, k = p.konto || {}, akt = k.aktuell, vorher = k.vorher, ist = rund(p.summe), nName = monatName(monatPlus(monat, 1));
+      const f = formularOeffnen(knopf, '<div class="korr-kopf"><b>' + esc(monatText(monat)) + "</b> abschließen: Wie viele Stunden wurden ausbezahlt (DATEV-Lohnabrechnung)? Der Rest geht in den " + esc(nName) + ".</div>" +
+        '<div class="korr-zeile fahrzeug-zeile">' +
+        (vorher ? "" : '<label>Übertrag Vormonat (Startwert)<input type="number" class="k-alt" step="0.25" inputmode="decimal" value="' + (akt ? akt.uebertragAlt : 0) + '" /></label>') +
+        '<label>Ausbezahlt (Std.)<input type="number" class="k-aus" min="0" step="0.25" inputmode="decimal" value="' + (akt ? akt.ausbezahlt : "") + '" /></label>' +
+        '<label class="grund">Bemerkung <span style="font-weight:500">(optional)</span><input type="text" class="k-g" placeholder="z. B. laut Lohnabrechnung" value="' + esc(akt ? akt.bemerkung : "") + '" /></label></div>' +
+        '<div><button type="button" class="link-plus" data-s="alles">Alles ausbezahlt</button> &nbsp; <button type="button" class="link-plus" data-s="nichts">Alles übertragen</button></div>' +
+        '<div class="korr-vorschau"></div><div class="korr-knoepfe"><button type="button" class="speichern">Abschluss speichern</button><button type="button" class="neben">Abbrechen</button>' +
+        (akt ? '<button type="button" class="aufheben">Abschluss löschen</button>' : "") + "</div>");
+      const altInp = f.querySelector(".k-alt"), aus = f.querySelector(".k-aus"), g = f.querySelector(".k-g"), vs = f.querySelector(".korr-vorschau"), sp = f.querySelector(".speichern");
+      const alt = () => vorher ? vorher.uebertragNeu : Number(String(altInp.value).replace(",", ".")) || 0;
+      function vorschau() {
+        if (aus.value === "") { vs.innerHTML = '<span class="warn">Bitte die ausbezahlten Stunden eintragen (0, wenn alles übertragen wird).</span>'; sp.disabled = true; return; }
+        const neu = rund(alt() + ist - Number(aus.value));
+        vs.innerHTML = mitVorzeichen(alt()) + " + " + std(ist) + " − " + std(Number(aus.value)) + " = <b>Übertrag " + esc(nName) + ": " + mitVorzeichen(neu) + " Std.</b>" + (neu < 0 ? ' <span class="minus">(Minusstunden)</span>' : "");
+        sp.disabled = false;
+      }
+      f.querySelectorAll("[data-s]").forEach((b) => b.addEventListener("click", () => { aus.value = b.dataset.s === "alles" ? Math.max(0, rund(alt() + ist)) : 0; vorschau(); }));
+      [aus, altInp].filter(Boolean).forEach((i) => i.addEventListener("input", vorschau)); vorschau();
+      const senden = (extra, okText) => aktionSenden(Object.assign({ aktion: "stundenkonto", pin: speicherS("az_dispo_pin"), name: p.name, monat: monat }, extra), okText);
+      sp.addEventListener("click", () => senden({ stunden: ist, ausbezahlt: aus.value, uebertragAlt: altInp ? altInp.value : "", bemerkung: g.value.trim() },
+        (r) => "Stundenkonto gespeichert: Übertrag " + mitVorzeichen(r.konto.aktuell.uebertragNeu) + " Std."));
+      const weg = f.querySelector(".aufheben"); if (weg) weg.addEventListener("click", () => senden({ op: "loeschen" }, () => "Abschluss gelöscht"));
+      aus.focus();
     }
 
     // ---------- Bedienung ----------
@@ -608,6 +723,40 @@
             this.fzAend[key] = { alt: this.fzAend[key] ? this.fzAend[key].alt : b.altFz, neu: b.fahrzeug, grund: b.grund || "Fahrzeug korrigiert" };
             return ok({ status: "ok", alt: alt, neu: b.fahrzeug });
           }
+          if (b.aktion === "zeit") {
+            const altKey = [b.name, b.datum, b.beginn, b.ende].join("|"), neuKey = [b.name, b.datum, b.neuBeginn, b.neuEnde].join("|");
+            const orig = this.zeitAend[altKey] ? this.zeitAend[altKey].orig : altKey;   // zweimal geändert: die erste Meldung zählt
+            delete this.zeitAend[altKey];
+            if (orig !== neuKey) this.zeitAend[neuKey] = { orig: orig, beginn: b.neuBeginn, ende: b.neuEnde, grund: b.grund };
+            ["korr", "fzAend"].forEach((t) => { if (this[t][altKey]) { this[t][neuKey] = this[t][altKey]; delete this[t][altKey]; } });   // Abzug und Fahrzeug wandern mit
+            return ok({ status: "ok", beginn: b.neuBeginn, ende: b.neuEnde, netto: nettoAus(b.neuBeginn, b.neuEnde), nettoAlt: nettoAus(b.beginn, b.ende) });
+          }
+          if (b.aktion === "durchschnitt") {
+            const tag = 86400000, fBis = isoVon(new Date(alsDatum(b.von).getTime() - tag)), fVon = isoVon(new Date(alsDatum(b.von).getTime() - 91 * tag));
+            const abw = new Set(), gesehen = new Set(); let st = 0;
+            new Set(tageZwischen(fVon, fBis).map((t) => t.slice(0, 7))).forEach((mm) => this.daten(mm).eintraege.forEach((x) => {
+              if (norm(x.name) !== norm(b.name)) return;
+              if (x.art !== "arbeit") { tageZwischen(x.von, x.bis).filter((t) => werktag(t) && t >= fVon && t <= fBis).forEach((t) => abw.add(t)); return; }
+              const k = x.datum + "|" + x.beginn + "|" + x.ende;
+              if (x.datum < fVon || x.datum > fBis || gesehen.has(k)) return;
+              gesehen.add(k); st += x.netto;
+            }));
+            const max = b.art === "krank" ? 5 : 8, wt = tageZwischen(fVon, fBis).filter((t) => werktag(t) && !abw.has(t)).length, roh = wt ? st / wt : 0, pro = Math.min(max, roh), ut = tageZwischen(b.von, b.bis).filter(werktag).length;
+            return ok({ status: "ok", von: fVon, bis: fBis, stunden: rund(st), werktage: wt, durchschnitt: rund(roh), proTag: rund(pro), max: max, gedeckelt: roh > max, tage: ut, vorschlag: rund(pro * ut) });
+          }
+          if (b.aktion === "stundenkonto") {
+            const eigene = () => this.konto.filter((k) => norm(k.name) === norm(b.name)).sort((a, c) => (a.monat < c.monat ? -1 : 1));
+            const da = this.konto.find((k) => norm(k.name) === norm(b.name) && k.monat === b.monat);
+            if (b.op === "loeschen") this.konto = this.konto.filter((k) => k !== da);
+            else {
+              if (String(b.ausbezahlt).trim() === "") return ok({ status: "error", message: "Bitte die ausbezahlten Stunden angeben (0, wenn alles übertragen wird)." });
+              const zahl = (v) => Number(String(v).replace(",", ".")) || 0, vor = eigene().filter((k) => k.monat < b.monat).pop(), alt = vor ? vor.uebertragNeu : rund(zahl(b.uebertragAlt));
+              const z = { monat: b.monat, name: b.name, uebertragAlt: alt, stunden: rund(zahl(b.stunden)), ausbezahlt: rund(zahl(b.ausbezahlt)), uebertragNeu: rund(alt + zahl(b.stunden) - zahl(b.ausbezahlt)), bemerkung: b.bemerkung || "", am: "20.10.2026 (Demo)" };
+              if (da) Object.assign(da, z); else this.konto.push(z);
+            }
+            const l = eigene(); for (let i = 1; i < l.length; i++) if (l[i].monat > b.monat) { l[i].uebertragAlt = l[i - 1].uebertragNeu; l[i].uebertragNeu = rund(l[i].uebertragAlt + l[i].stunden - l[i].ausbezahlt); }
+            return ok({ status: "ok", konto: this.kontoFuer(b.monat).find((k) => norm(k.name) === norm(b.name)) || { name: b.name, vorher: null, aktuell: null } });
+          }
           if (b.aktion === "hinweis") {
             this.erledigt = this.erledigt.filter((k) => k !== b.schluessel); if (b.op !== "zurueck") this.erledigt.push(b.schluessel);
             return ok({ status: "ok", erledigt: this.erledigt.slice() });
@@ -622,11 +771,21 @@
             else if (m) m.aktiv = false;
             return ok({ status: "ok", mitarbeiterAlle: t.slice().sort((a, c) => a.name.localeCompare(c.name, "de")) });
           }
-          ok(Object.assign({ status: "ok", monat: b.monat, heute: "2026-10-16", stand: new Date().toISOString() }, this.daten(b.monat)));
+          ok(Object.assign({ status: "ok", version: "2.5", monat: b.monat, heute: "2026-10-16", stand: new Date().toISOString() }, this.daten(b.monat)));
         }, 500));
       },
       team: null,
-      korr: {}, fzAend: {}, urlaubStd: { "Hanna Skizze|2026-10-05": 16 }, erledigt: [],
+      korr: {}, fzAend: {}, zeitAend: {}, urlaubStd: { "Hanna Skizze|2026-10-05": 16 }, erledigt: [],
+      konto: [{ monat: "2026-09", name: "Hanna Skizze", uebertragAlt: 0, stunden: 162.5, ausbezahlt: 155, uebertragNeu: 7.5, bemerkung: "laut Lohnabrechnung September", am: "05.10.2026 09:12 (Demo)" },
+              { monat: "2026-09", name: "Jonas Prototyp", uebertragAlt: 0, stunden: 46, ausbezahlt: 43, uebertragNeu: 3, bemerkung: "Minijob-Grenze", am: "05.10.2026 09:15 (Demo)" }],
+      kontoFuer(m) {
+        const je = {};
+        this.konto.forEach((k) => {
+          const o = (je[norm(k.name)] = je[norm(k.name)] || { name: k.name, vorher: null, aktuell: null });
+          if (k.monat === m) o.aktuell = k; else if (k.monat < m && (!o.vorher || k.monat > o.vorher.monat)) o.vorher = k;
+        });
+        return Object.values(je);
+      },
       teamListe() {
         if (!this.team) this.team = ["Anna Beispiel", "Berta Probe", "Carl Muster", "Dana Test", "Emil Entwurf", "Frieda Vorlage", "Gustav Platzhalter", "Hanna Skizze", "Ilse Modell", "Jonas Prototyp", "Karla Schablone", "Lukas Attrappe", "Mia Fiktiv", "Noah Annahme"]
           .map((n, i) => ({ name: n, aktiv: true, datev: String(100 + i * 7) })).concat([{ name: "Otto Ehemalig", aktiv: false, datev: "42" }]);
@@ -646,6 +805,7 @@
             if (wt === 0 || (wt === 6 && z() > 0.15) || (mini && z() > 0.35) || z() < 0.06) continue;
             if (i === 3 && m === "2026-10" && d > 9) continue; // Lücke
             if (i === 7 && m === "2026-10" && (d === 5 || d === 6)) continue; // Urlaub (steht doppelt drin)
+            if (i === 9 && m === "2026-10" && (d === 13 || d === 14)) continue; // Urlaub Minijob
             const b = 330 + Math.round(z() * 8) * 15, dauer = mini ? 180 + Math.round(z() * 4) * 30 : 420 + Math.round(z() * 8) * 15, h = dauer / 60;
             e.push({ name: n, datum: iso, art: "arbeit", beginn: fmt(b), ende: fmt(b + dauer), fahrzeug: z() < 0.85 ? fz[i % fz.length] : fz[(i + 3) % fz.length], netto: Math.round((h - (h >= 8 ? 0.75 : h >= 6 ? 0.5 : 0)) * 100) / 100, notiz: "" });
           }
@@ -658,12 +818,18 @@
           e.push({ name: "Ilse Modell", datum: "2026-10-12", art: "urlaub", von: "2026-10-12", bis: "2026-10-16", netto: 0, notiz: "Urlaub 2026-10-12 – 2026-10-16 (5 Werktage)" });
           const hanna = { name: "Hanna Skizze", datum: "2026-10-05", art: "urlaub", von: "2026-10-05", bis: "2026-10-06", netto: 0, notiz: "Urlaub 2026-10-05 – 2026-10-06 (2 Werktage)" };
           e.push(hanna, Object.assign({}, hanna));
+          e.push({ name: "Jonas Prototyp", datum: "2026-10-06", art: "arbeit", beginn: "06:45", ende: "10:30", fahrzeug: "SLE-VM 300", netto: 3.75, notiz: "" });
+          e.push({ name: "Jonas Prototyp", datum: "2026-10-08", art: "arbeit", beginn: "13:00", ende: "16:30", fahrzeug: "SLE-VM 300", netto: 3.5, notiz: "" });
+          e.push({ name: "Jonas Prototyp", datum: "2026-10-13", art: "urlaub", von: "2026-10-13", bis: "2026-10-14", netto: 0, notiz: "Urlaub 2026-10-13 – 2026-10-14 (2 Werktage)" });
           e.push({ name: "Frieda Vorlage", datum: "2026-10-16", art: "krank", von: "2026-10-16", bis: "2026-10-16", netto: 5, notiz: "Krank 2026-10-16 – 2026-10-16 (1 Werktage, AU: Ja)" });
         }
         e.forEach((x, i) => {
           x.zeile = i + 2;
           if (x.art === "urlaub") { const st = this.urlaubStd[x.name + "|" + x.von]; if (st === undefined) { x.netto = 0; x.stundenOffen = true; } else x.netto = st; return; }
+          if (x.art === "krank") { const st = this.urlaubStd[x.name + "|" + x.von]; if (st !== undefined) x.netto = st; return; }
           if (x.art !== "arbeit") return;
+          const zn = Object.values(this.zeitAend).find((t) => t.orig === [x.name, x.datum, x.beginn, x.ende].join("|"));
+          if (zn) { x.zeitAlt = { alt: x.beginn + "–" + x.ende, grund: zn.grund, am: "20.10.2026 (Demo)" }; x.beginn = zn.beginn; x.ende = zn.ende; x.netto = nettoAus(zn.beginn, zn.ende); }
           x.nettoGemeldet = x.netto; x.leerzeit = 0;
           const key = [x.name, x.datum, x.beginn, x.ende].join("|"), k = this.korr[key], fa = this.fzAend[key];
           if (k) { x.leerzeit = k.abzug; x.netto = Math.round((x.nettoGemeldet - k.abzug) * 100) / 100; x.korrektur = { abzugszeit: k.abzugszeit, grund: k.grund, abzug: k.abzug, am: "18.10.2026 (Demo)" }; }
@@ -671,7 +837,7 @@
         });
         const team = this.teamListe();
         return { mitarbeiter: team.filter((x) => x.aktiv).map((x) => ({ name: x.name, standort: "EU" })), mitarbeiterAlle: team.slice().sort((a, c) => a.name.localeCompare(c.name, "de")), fahrzeuge: fz,
-          fahrzeugListe: fz.map((k, i) => ({ kennzeichen: k, name: ["BTW 1", "BTW 8", "BUS 6", "LMW 4", "TSW 3", "BUS 9", "BTW 9"][i], kategorie: ["BTW", "BTW", "BUS", "LMW", "TSW", "BUS", "BTW"][i] })), eintraege: e, erledigt: this.erledigt.slice() };
+          fahrzeugListe: fz.map((k, i) => ({ kennzeichen: k, name: ["BTW 1", "BTW 8", "BUS 6", "LMW 4", "TSW 3", "BUS 9", "BTW 9"][i], kategorie: ["BTW", "BTW", "BUS", "LMW", "TSW", "BUS", "BTW"][i] })), eintraege: e, erledigt: this.erledigt.slice(), konto: this.kontoFuer(m) };
       }
     };
 
