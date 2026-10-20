@@ -242,7 +242,9 @@
     function monatText(m) { const t = m.split("-"); return new Date(+t[0], +t[1] - 1, 1).toLocaleDateString("de-DE", { month: "long", year: "numeric" }); }
     function monatName(m) { return monatText(m).split(" ")[0]; }
     // Uhrzeit ändern, Durchschnitt und Stundenkonto gibt es erst ab Backend 2.5 (ältere Versionen speichern unbekannte Aktionen als Arbeitszeit)
-    function backendNeu() { if (DEMO) return true; const v = String((daten && daten.version) || "0.0").split(".").map(Number); return v[0] > 2 || (v[0] === 2 && v[1] >= 5); }
+    function backendAb(soll) { if (DEMO) return true; const v = String((daten && daten.version) || "0.0").split(".").map(Number), s = soll.split(".").map(Number); return v[0] > s[0] || (v[0] === s[0] && v[1] >= s[1]); }
+    function backendNeu() { return backendAb("2.5"); }
+    // ab 2.6: Stunden je Urlaubs-/Krankheitstag, Einträge nachtragen
     function monatPlus(m, n) { const t = m.split("-"); const d = new Date(+t[0], +t[1] - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
     function speicherS(k, v) { try { if (v === undefined) return sessionStorage.getItem(k); if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) { return null; } }
 
@@ -295,7 +297,12 @@
           const k = abwSchluessel(e), doppelt = abwZaehlt.get(k) !== e;
           const alle = tageZwischen(e.von, e.bis).filter(werktag);
           const proTag = alle.length ? e.netto / alle.length : 0;
-          alle.filter((t) => t >= anfang && t <= ende).forEach((t) => { tagEintrag(p, t).push({ art: e.art, netto: proTag, notiz: e.notiz, flags: doppelt ? ["doppelt"] : [], doppelt: doppelt, quelle: e, stundenOffen: !doppelt && !!e.stundenOffen }); if (!doppelt) p.summe += proTag; });
+          // eigene Stunden je Tag (Reiter "Abwesenheit Tage"), sonst gleichmäßig verteilt
+          alle.filter((t) => t >= anfang && t <= ende).forEach((t) => {
+            const wert = e.tage && e.tage[t] != null ? e.tage[t] : proTag;
+            tagEintrag(p, t).push({ art: e.art, netto: wert, notiz: e.notiz, flags: doppelt ? ["doppelt"] : [], doppelt: doppelt, quelle: e, tag: t, eigen: !!(e.tage && e.tage[t] != null), stundenOffen: !doppelt && !!e.stundenOffen });
+            if (!doppelt) p.summe += wert;
+          });
           if (doppelt) { (doppelteAbw[k] = doppelteAbw[k] || { p, e, n: 1 }).n++; return; }
           if (e.stundenOffen) hinweise.push({ p, datum: e.von, typ: "urlaub", text: "<b>" + esc(p.name) + "</b> – Urlaub " + kurz(e.von) + " – " + kurz(e.bis) + ": Stunden fehlen noch (beim Mitarbeiter auf „Stunden eintragen“)." });
         }
@@ -493,7 +500,7 @@
       const zeilen = tageZwischen(anfang, bis).map((t) => {   // aufsteigend: der 1. steht oben
         const es = p.tage[t] || [], we = !werktag(t), d = alsDatum(t);
         const dtxt = '<div class="d">' + d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }) + "<small>" + d.toLocaleDateString("de-DE", { weekday: "long" }) + "</small></div>";
-        if (!es.length) return we ? "" : '<div class="tag">' + dtxt + '<div style="color:var(--leise)">kein Eintrag</div><div></div><div></div></div>';
+        if (!es.length) return we ? "" : '<div class="tag">' + dtxt + '<div style="color:var(--leise)">kein Eintrag</div><div></div><div class="tag-knoepfe">' + (p.inListe && backendAb("2.6") ? knopf("+ Eintrag", "nachtragen", { p: p, tag: t }) : "") + "</div></div>";
         return es.map((x) => {
           const warn = x.flags.length, cls = x.art === "urlaub" ? " urlaub" : x.art === "krank" ? " krank" : warn ? " warn" : "";
           const flags = x.flags.map((f) => '<span class="pill w">' + ({ doppelt: "doppelt", ueberschneidung: "überschneidet", fahrzeug: "Fahrzeug?" })[f] + "</span>").join(" ");
@@ -519,16 +526,19 @@
             mitte = (x.art === "urlaub" ? '<span class="pill u">Urlaub</span>' : '<span class="pill k">Krank</span>') +
               (q.von ? ' <span class="pill">' + kurz(q.von) + " – " + kurz(q.bis) + "</span>" : "") + (x.stundenOffen ? ' <span class="pill w">Stunden fehlen</span>' : "") + " " + flags;
             // jeder Urlaubs-/Krankheitstag hat den Knopf; die Stunden gelten für den ganzen Zeitraum (Krank erst ab Backend 2.5)
-            if (q.zeile && !x.doppelt && (x.art === "urlaub" || backendNeu())) knoepfe = knopf(x.stundenOffen ? "Stunden eintragen" : "Stunden ändern", "urlaub", x);
+            if (q.zeile && !x.doppelt && (x.art === "urlaub" || backendNeu())) knoepfe = knopf(x.stundenOffen ? "Stunden eintragen" : backendAb("2.6") ? "Gesamt ändern" : "Stunden ändern", "urlaub", x);
           }
-          const stunden = x.stundenOffen ? '<span style="color:var(--leise)">–</span>' : x.doppelt ? '<s style="color:var(--leise)">' + std(x.netto) + "</s>" : std(x.netto);
+          let stunden = x.stundenOffen ? '<span style="color:var(--leise)">–</span>' : x.doppelt ? '<s style="color:var(--leise)">' + std(x.netto) + "</s>" : std(x.netto);
+          // Urlaub/Krank: Stunden dieses Tages anklicken = nur diesen Tag ändern
+          if (x.art !== "arbeit" && x.quelle && x.quelle.zeile && !x.doppelt && backendAb("2.6"))
+            stunden = '<button type="button" class="zeit-knopf" title="Stunden an diesem Tag ändern" data-a="' + aktionen.push({ typ: "tag", x: x }) + '">' + (x.stundenOffen ? "–" : std(x.netto)) + " <span>✎</span></button>";
           return '<div class="tag' + cls + (x.korrektur || x.fahrzeugAlt || x.zeitAlt ? " korrigiert" : "") + (we ? " we" : "") + '">' + dtxt + "<div>" + mitte + notiz + '</div><div class="h">' + stunden + '</div><div class="tag-knoepfe">' + knoepfe + "</div></div>";
         }).join("");
       }).join("");
-      $("rechts").innerHTML = '<div class="detail-kopf"><div class="ava" style="background:' + (p.inListe ? farbe(p.name) : "#94a3b8") + '">' + esc(initialen(p.name)) + '</div><div><strong>' + esc(p.name) + "</strong>" + (p.inListe ? "" : '<span class="pill w">nicht in der Liste</span>' + (backendNeu() ? "<br>" + knopf("Namen zuordnen …", "zuordnen", { p: p }) : "")) + '</div><div class="gross">' + std(p.summe) + "<small>Std. netto " + esc(monatName(monat)) + "</small></div></div>" + kontoBox(p, knopf) + zeilen;
+      $("rechts").innerHTML = '<div class="detail-kopf"><div class="ava" style="background:' + (p.inListe ? farbe(p.name) : "#94a3b8") + '">' + esc(initialen(p.name)) + '</div><div><strong>' + esc(p.name) + "</strong>" + (p.inListe ? (backendAb("2.6") ? "<br>" + knopf("+ Eintrag nachtragen", "nachtragen", { p: p, tag: bis }) : "") : '<span class="pill w">nicht in der Liste</span>' + (backendNeu() ? "<br>" + knopf("Namen zuordnen …", "zuordnen", { p: p }) : "")) + '</div><div class="gross">' + std(p.summe) + "<small>Std. netto " + esc(monatName(monat)) + "</small></div></div>" + kontoBox(p, knopf) + zeilen;
       document.querySelectorAll("#rechts [data-a]").forEach((b) => b.addEventListener("click", () => {
         const a = aktionen[+b.dataset.a - 1];
-        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular, zeit: zeitFormular, konto: kontoFormular, zuordnen: zuordnenFormular })[a.typ](b, a.x);
+        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular, zeit: zeitFormular, konto: kontoFormular, zuordnen: zuordnenFormular, tag: tagFormular, nachtragen: nachtragenFormular })[a.typ](b, a.x);
       }));
     }
 
@@ -688,6 +698,74 @@
       inp.focus();
     }
 
+    // Stunden an einem einzelnen Urlaubs-/Krankheitstag: die anderen Tage bleiben, die Summe des Zeitraums rechnet das Backend neu
+    function tagFormular(knopf, x) {
+      const q = x.quelle, art = x.art === "krank" ? "Krank" : "Urlaub";
+      const f = formularOeffnen(knopf, '<div class="korr-kopf">' + art + " am <b>" + kurz(x.tag) + "</b> (Zeitraum " + kurz(q.von) + " – " + kurz(q.bis) + "). Stunden an diesem Tag:</div>" +
+        '<div class="ds-box"></div>' +
+        '<div class="korr-zeile fahrzeug-zeile"><label>Stunden<input type="number" class="k-std" min="0" max="24" step="0.25" inputmode="decimal" value="' + (x.stundenOffen ? "" : rund(x.netto)) + '" /></label><div class="hinweis-klein">Die anderen Tage bleiben, wie sie sind.</div></div>' +
+        '<div class="korr-knoepfe"><button type="button" class="speichern">Tag speichern</button><button type="button" class="neben">Abbrechen</button></div>');
+      const inp = f.querySelector(".k-std"), box = f.querySelector(".ds-box");
+      apiPost({ aktion: "durchschnitt", pin: speicherS("az_dispo_pin"), name: q.name, von: q.von, bis: q.bis, art: x.art }).then((r) => {
+        if (!box.isConnected || r.status !== "ok" || !r.werktage) return;
+        box.innerHTML = "Ø letzte 13 Wochen: <b>" + std(r.proTag) + " Std./Tag</b>" + (r.gedeckelt ? " (höchstens " + r.max + ")" : "") + '<button type="button" class="link-plus ds-nehmen">Übernehmen</button>';
+        box.querySelector(".ds-nehmen").addEventListener("click", () => { inp.value = r.proTag; inp.focus(); });
+      }).catch(() => {});
+      f.querySelector(".speichern").addEventListener("click", () => {
+        if (inp.value === "") { toast("Bitte Stunden eintragen (0 geht auch).", true); inp.focus(); return; }
+        aktionSenden({ aktion: "abwesenheitstag", pin: speicherS("az_dispo_pin"), zeile: q.zeile, name: q.name, von: q.von, tag: x.tag, stunden: inp.value },
+          (r) => art + " " + kurz(x.tag) + ": " + std(r.tage[x.tag]) + " Std. · Zeitraum gesamt " + std(r.stunden) + " Std.");
+      });
+      inp.focus(); inp.select();
+    }
+
+    // Eintrag nachtragen (Mitarbeiter hat vergessen einzutragen): Arbeitszeit, Urlaub oder Krank – mit denselben Prüfungen wie die App
+    function nachtragenFormular(knopf, x) {
+      const p = x.p, liste = daten.fahrzeugListe || daten.fahrzeuge.map((k) => ({ kennzeichen: k, name: "", kategorie: "" }));
+      const gruppen = {};
+      liste.forEach((fz) => { const g = fz.kategorie || "Weitere"; (gruppen[g] = gruppen[g] || []).push(fz); });
+      const fzOptionen = '<option value="">Ohne Fahrzeug</option>' + Object.keys(gruppen).sort((a, b) => a === "Verliehen" ? 1 : b === "Verliehen" ? -1 : a.localeCompare(b)).map((g) =>
+        '<optgroup label="' + esc(g) + '">' + gruppen[g].map((fz) => '<option value="' + esc(fz.kennzeichen) + '">' + esc(fz.kennzeichen + (fz.name ? " · " + fz.name : "")) + "</option>").join("") + "</optgroup>").join("");
+      const f = formularOeffnen(knopf, '<div class="korr-kopf">Eintrag für <b>' + esc(p.name) + "</b> nachtragen:</div>" +
+        '<div class="korr-zeile fahrzeug-zeile"><label>Art<select class="k-art"><option value="arbeitszeit">Arbeitszeit</option><option value="urlaub">Urlaub</option><option value="krank">Krank</option></select></label>' +
+        '<label>Datum<input type="date" class="k-dat" value="' + esc(x.tag) + '" max="' + esc(daten.heute) + '" /></label></div>' +
+        '<div class="korr-zeile n-arbeit" style="margin-top:.5rem"><label>Beginn<input type="time" class="k-von" /></label><label>Ende<input type="time" class="k-bis" /></label>' +
+        '<label class="grund">Fahrzeug<select class="k-fz">' + fzOptionen + "</select></label></div>" +
+        '<div class="korr-zeile fahrzeug-zeile n-abw" style="margin-top:.5rem" hidden><label>Bis<input type="date" class="k-ende" value="' + esc(x.tag) + '" /></label><div class="hinweis-klein">Stunden: Urlaub danach über „Gesamt ändern“ bzw. je Tag, Krank rechnet der Durchschnitt.</div></div>' +
+        '<div class="korr-zeile einzeln" style="margin-top:.5rem"><label class="grund">Grund<input type="text" class="k-g" placeholder="z. B. vergessen einzutragen, laut DMRZ" /></label></div>' +
+        '<div class="korr-vorschau"></div><div class="korr-knoepfe"><button type="button" class="speichern">Eintragen</button><button type="button" class="neben">Abbrechen</button></div>');
+      const $f = (c) => f.querySelector(c), art = $f(".k-art"), vs = $f(".korr-vorschau");
+      function anzeige() {
+        const arbeit = art.value === "arbeitszeit";
+        $f(".n-arbeit").hidden = !arbeit; $f(".n-abw").hidden = arbeit;
+        if ($f(".k-ende").value < $f(".k-dat").value) $f(".k-ende").value = $f(".k-dat").value;
+        const b = $f(".k-von").value, e = $f(".k-bis").value;
+        vs.innerHTML = arbeit && b && e ? (minuten(e) > minuten(b) ? b + "–" + e + " → <b>" + std(nettoAus(b, e)) + " Std. netto</b>" : '<span class="warn">Das Ende muss nach dem Beginn liegen.</span>') : "";
+      }
+      f.querySelectorAll("input, select").forEach((i) => i.addEventListener("input", anzeige)); anzeige();
+      async function senden(bestaetigt) {
+        const arbeit = art.value === "arbeitszeit", g = $f(".k-g").value.trim();
+        if (!g) { toast("Bitte einen Grund angeben.", true); $f(".k-g").focus(); return; }
+        if (arbeit && (!$f(".k-von").value || !$f(".k-bis").value)) { toast("Bitte Beginn und Ende eintragen.", true); return; }
+        const body = { aktion: "nachtragen", pin: speicherS("az_dispo_pin"), name: p.name, typ: art.value, grund: g, bestaetigt: !!bestaetigt,
+                       datum: $f(".k-dat").value, beginn: $f(".k-von").value, ende: $f(".k-bis").value, fahrzeug: $f(".k-fz").value, von: $f(".k-dat").value, bis: $f(".k-ende").value };
+        $("laden").hidden = false;
+        let r;
+        try { r = await apiPost(body); } catch (err) { r = { status: "error", message: "Keine Verbindung – nichts gespeichert." }; }
+        $("laden").hidden = true;
+        if (r.status === "rueckfrage") {
+          const vorh = (r.vorhandene || []).map((v) => v.beginn + "–" + v.ende).join(", ");
+          if (confirm("An diesem Tag ist schon eingetragen: " + vorh + ".\nDie neue Zeit überschneidet sich damit. Trotzdem eintragen?")) senden(true);
+          return;
+        }
+        if (r.status === "ok") { toast("Nachgetragen: " + p.name + (arbeit ? ", " + kurz(body.datum) + " " + body.beginn + "–" + body.ende : ", " + (art.value === "urlaub" ? "Urlaub" : "Krank") + " ab " + kurz(body.von))); await lade(speicherS("az_dispo_pin")); }
+        else if (r.status === "pin" || r.status === "gesperrt") { toast(r.message, true); $("abmelden").click(); }
+        else toast(r.status === "doppelt" ? "Dieser Eintrag ist schon gespeichert." : r.message || "Fehler.", true);
+      }
+      $f(".speichern").addEventListener("click", () => senden(false));
+      $f(".k-von").focus();
+    }
+
     // Selbst eingetippter / falsch geschriebener Name, der nicht in der Liste steht: allen Einträgen den richtigen Listennamen geben
     function zuordnenFormular(knopf, x) {
       const p = x.p, alle = (daten.mitarbeiterAlle || daten.mitarbeiter.map((m) => ({ name: m.name, aktiv: true }))).filter((m) => m.aktiv);
@@ -796,11 +874,25 @@
             const l = eigene(); for (let i = 1; i < l.length; i++) if (l[i].monat > b.monat) { l[i].uebertragAlt = l[i - 1].uebertragNeu; l[i].uebertragNeu = rund(l[i].uebertragAlt + l[i].stunden - l[i].ausbezahlt); }
             return ok({ status: "ok", konto: this.kontoFuer(b.monat).find((k) => norm(k.name) === norm(b.name)) || { name: b.name, vorher: null, aktuell: null } });
           }
+          if (b.aktion === "abwesenheitstag") {
+            const k = b.name + "|" + b.von, x = this.daten(b.von.slice(0, 7)).eintraege.find((e) => e.art !== "arbeit" && e.name === b.name && e.von === b.von);
+            const wt = tageZwischen(x.von, x.bis).filter(werktag), alt = this.tagStd[k] || {};
+            const tage = {}; wt.forEach((t) => { tage[t] = alt[t] != null ? alt[t] : rund(x.netto / wt.length); }); tage[b.tag] = rund(Number(String(b.stunden).replace(",", ".")));
+            this.tagStd[k] = tage;
+            return ok({ status: "ok", tage: tage, stunden: rund(wt.reduce((s2, t) => s2 + tage[t], 0)) });
+          }
+          if (b.aktion === "nachtragen") {
+            if (!String(b.grund || "").trim()) return ok({ status: "error", message: "Bitte einen Grund angeben." });
+            if (b.typ === "arbeitszeit") this.extra.push({ name: b.name, datum: b.datum, art: "arbeit", beginn: b.beginn, ende: b.ende, fahrzeug: b.fahrzeug, netto: nettoAus(b.beginn, b.ende), notiz: "Dispo: " + b.grund });
+            else this.extra.push({ name: b.name, datum: b.von, art: b.typ, von: b.von, bis: b.bis || b.von, netto: b.typ === "krank" ? 5 * tageZwischen(b.von, b.bis || b.von).filter(werktag).length : 0, notiz: (b.typ === "urlaub" ? "Urlaub " : "Krank ") + b.von + " – " + (b.bis || b.von) + " · Dispo: " + b.grund });
+            return ok({ status: "ok" });
+          }
           if (b.aktion === "hinweis") {
             this.erledigt = this.erledigt.filter((k) => k !== b.schluessel); if (b.op !== "zurueck") this.erledigt.push(b.schluessel);
             return ok({ status: "ok", erledigt: this.erledigt.slice() });
           }
           if (b.aktion === "urlaubstunden") {
+            delete this.tagStd[b.name + "|" + b.von];
             this.urlaubStd[b.name + "|" + b.von] = b.stunden === "" ? undefined : Number(String(b.stunden).replace(",", "."));
             return ok({ status: "ok", stunden: b.stunden === "" ? "" : Number(String(b.stunden).replace(",", ".")) });
           }
@@ -820,11 +912,11 @@
             else if (m) m.aktiv = false;
             return ok({ status: "ok", mitarbeiterAlle: t.slice().sort((a, c) => a.name.localeCompare(c.name, "de")) });
           }
-          ok(Object.assign({ status: "ok", version: "2.5", monat: b.monat, heute: "2026-10-16", stand: new Date().toISOString() }, this.daten(b.monat)));
+          ok(Object.assign({ status: "ok", version: "2.6", monat: b.monat, heute: "2026-10-16", stand: new Date().toISOString() }, this.daten(b.monat)));
         }, 500));
       },
       team: null,
-      korr: {}, fzAend: {}, zeitAend: {}, umbenannt: {}, urlaubStd: { "Hanna Skizze|2026-10-05": 16 }, erledigt: [],
+      korr: {}, fzAend: {}, zeitAend: {}, umbenannt: {}, tagStd: {}, extra: [], urlaubStd: { "Hanna Skizze|2026-10-05": 16 }, erledigt: [],
       konto: [{ monat: "2026-09", name: "Hanna Skizze", uebertragAlt: 0, stunden: 162.5, ausbezahlt: 155, uebertragNeu: 7.5, bemerkung: "laut Lohnabrechnung September", am: "05.10.2026 09:12 (Demo)" },
               { monat: "2026-09", name: "Jonas Prototyp", uebertragAlt: 0, stunden: 46, ausbezahlt: 43, uebertragNeu: 3, bemerkung: "Minijob-Grenze", am: "05.10.2026 09:15 (Demo)" }],
       kontoFuer(m) {
@@ -872,9 +964,12 @@
           e.push({ name: "Jonas Prototyp", datum: "2026-10-13", art: "urlaub", von: "2026-10-13", bis: "2026-10-14", netto: 0, notiz: "Urlaub 2026-10-13 – 2026-10-14 (2 Werktage)" });
           e.push({ name: "Frieda Vorlage", datum: "2026-10-16", art: "krank", von: "2026-10-16", bis: "2026-10-16", netto: 5, notiz: "Krank 2026-10-16 – 2026-10-16 (1 Werktage, AU: Ja)" });
         }
+        this.extra.filter((x) => (x.von || x.datum).slice(0, 7) === m).forEach((x) => e.push(Object.assign({}, x)));
         e.forEach((x, i) => {
           x.zeile = i + 2;
           if (this.umbenannt[norm(x.name)]) x.name = this.umbenannt[norm(x.name)];
+          const td = this.tagStd[x.name + "|" + x.von];
+          if (x.art !== "arbeit" && td) { x.tage = td; x.netto = rund(Object.values(td).reduce((a, v) => a + v, 0)); return; }
           if (x.art === "urlaub") { const st = this.urlaubStd[x.name + "|" + x.von]; if (st === undefined) { x.netto = 0; x.stundenOffen = true; } else x.netto = st; return; }
           if (x.art === "krank") { const st = this.urlaubStd[x.name + "|" + x.von]; if (st !== undefined) x.netto = st; return; }
           if (x.art !== "arbeit") return;
