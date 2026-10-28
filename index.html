@@ -91,6 +91,8 @@
     .korr-knoepfe .speichern:disabled { opacity: 0.5; cursor: default; }
     .korr-knoepfe .neben { background: var(--feld); color: var(--text); }
     .korr-knoepfe .aufheben { background: var(--rose-hell); color: var(--rose); margin-left: auto; }
+    .korr-knoepfe .loeschen { color: #fff; background: var(--rose); }
+    .tag-aktion.weg { color: var(--rose); } .tag-aktion.weg:hover { background: var(--rose-hell); color: var(--rose); }
     @media (max-width: 700px) { .korr-zeile { grid-template-columns: 1fr 1fr; } .korr-zeile .grund { grid-column: 1 / -1; } }
     .korr-zeile:has(input[type="date"]) { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }   /* Datum braucht mehr Platz als Uhrzeit; Grund rutscht bei Bedarf in die nächste Zeile */
     .korr-zeile:has(input[type="date"]) .grund { grid-column: span 2; }
@@ -575,7 +577,7 @@
       // bis heute; künftige Tage nur, wenn dort schon etwas steht (z. B. geplanter Urlaub)
       const spaetester = Object.keys(p.tage).filter((t) => t.slice(0, 7) === monat).sort().pop() || "";
       const bis = monat < daten.heute.slice(0, 7) ? letzter : spaetester > daten.heute ? spaetester : monat === daten.heute.slice(0, 7) ? daten.heute : anfang;
-      const knopf = (text, typ, x) => '<button type="button" class="tag-aktion" data-a="' + aktionen.push({ typ: typ, x: x }) + '">' + text + "</button>";
+      const knopf = (text, typ, x, cls) => '<button type="button" class="tag-aktion' + (cls ? " " + cls : "") + '" data-a="' + aktionen.push({ typ: typ, x: x }) + '">' + text + "</button>";
       const zeilen = tageZwischen(anfang, bis).map((t) => {   // aufsteigend: der 1. steht oben
         const es = p.tage[t] || [], we = !werktag(t), d = alsDatum(t);
         const dtxt = '<div class="d">' + d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }) + "<small>" + (feiertag(t) ? esc(feiertag(t)) : d.toLocaleDateString("de-DE", { weekday: "long" })) + "</small></div>";
@@ -600,6 +602,7 @@
               (x.korrektur ? '<span class="notiz">Abzug: ' + esc(x.korrektur.grund) + (x.korrektur.am ? " (" + esc(x.korrektur.am) + ")" : "") + "</span>" : "") +
               (x.fahrzeugAlt ? '<span class="notiz">Fahrzeug geändert: ' + esc(x.fahrzeugAlt.grund) + (x.fahrzeugAlt.am ? " (" + esc(x.fahrzeugAlt.am) + ")" : "") + "</span>" : "");
             if (!x.doppelt && x.zeile) knoepfe = knopf(x.korrektur ? "Abzug ändern" : "Abzug", "abzug", x) + knopf("Fahrzeug", "fahrzeug", x);
+            if (x.zeile && backendAb("2.9")) knoepfe += knopf("Löschen", "loeschen", x, "weg");   // war nicht da / doppelt: Eintrag ganz weg
           } else {
             const q = x.quelle || {};
             mitte = (x.art === "urlaub" ? '<span class="pill u">Urlaub</span>' : '<span class="pill k">Krank</span>') +
@@ -621,7 +624,7 @@
       $("rechts").innerHTML = '<div class="detail-kopf"><div class="ava" style="background:' + (p.inListe ? farbe(p.name) : "#94a3b8") + '">' + esc(initialen(p.name)) + '</div><div><strong>' + esc(p.name) + "</strong>" + (p.inListe ? (backendAb("2.6") ? "<br>" + knopf("+ Eintrag nachtragen", "nachtragen", { p: p, tag: bis }) : "") : '<span class="pill w">nicht in der Liste</span>' + (backendNeu() ? "<br>" + knopf("Namen zuordnen …", "zuordnen", { p: p }) : "")) + '</div><div class="gross">' + std(p.summe) + "<small>Std. netto " + esc(monatName(monat)) + "</small></div></div>" + kontoBox(p, knopf) + zeilen;
       document.querySelectorAll("#rechts [data-a]").forEach((b) => b.addEventListener("click", () => {
         const a = aktionen[+b.dataset.a - 1];
-        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular, zeit: zeitFormular, datum: datumFormular, konto: kontoFormular, zuordnen: zuordnenFormular, tag: tagFormular, nachtragen: nachtragenFormular, zeitraum: zeitraumFormular })[a.typ](b, a.x);
+        ({ abzug: abzugFormular, fahrzeug: fahrzeugFormular, urlaub: urlaubFormular, zeit: zeitFormular, datum: datumFormular, konto: kontoFormular, zuordnen: zuordnenFormular, tag: tagFormular, nachtragen: nachtragenFormular, zeitraum: zeitraumFormular, loeschen: loeschenFormular })[a.typ](b, a.x);
       }));
     }
 
@@ -766,6 +769,20 @@
           (r) => (r.datum && r.datum !== x.datum ? "Tag geändert: " + kurz(x.datum) + " → " + kurz(r.datum) + ", " : "Zeit geändert: ") + r.beginn + "–" + r.ende + " (" + std(r.nettoAlt) + " → " + std(r.netto) + " Std.)");
       });
       von.focus();
+    }
+
+    // Eintrag löschen: Mitarbeiter war an dem Tag gar nicht da (oder hat doppelt abgeschickt). Die Zeile verschwindet ganz, das Protokoll bleibt.
+    function loeschenFormular(knopf, x) {
+      const f = formularOeffnen(knopf, '<div class="korr-kopf">' + (x.doppelt ? "Doppelte Meldung" : "Eintrag") + " <b>" + kurz(x.datum) + " " + esc(x.beginn + "–" + x.ende) + "</b> · " + std(x.netto) + " Std. netto" + (x.fahrzeug ? " · " + esc(x.fahrzeug) : "") +
+        " komplett löschen? Die Stunden zählen danach nicht mehr. Im Reiter „Korrekturen“ bleibt ein Protokoll.</div>" +
+        '<div class="korr-zeile einzeln"><label class="grund">Grund<input type="text" class="k-g" placeholder="z. B. war an dem Tag nicht da, laut DMRZ" value="' + (x.doppelt ? "doppelt abgeschickt" : "") + '" /></label></div>' +
+        '<div class="korr-knoepfe"><button type="button" class="loeschen">Eintrag löschen</button><button type="button" class="neben">Abbrechen</button></div>');
+      const g = f.querySelector(".k-g");
+      f.querySelector(".loeschen").addEventListener("click", () => {
+        if (!g.value.trim()) { g.focus(); toast("Bitte einen Grund angeben.", true); return; }
+        aktionSenden(Object.assign(basis(x), { aktion: "loeschen", grund: g.value.trim() }), (r) => "Gelöscht: " + kurz(r.datum) + " " + r.beginn + "–" + r.ende + " (" + std(r.netto) + " Std.)");
+      });
+      g.focus();
     }
 
     // Urlaubs-/Krankstunden: bei Urlaub trägt die App nur den Zeitraum ein, die Stunden setzt die Dispo; Krank rechnet das Backend vor.
@@ -1135,6 +1152,12 @@
             ["korr", "fzAend"].forEach((t) => { if (this[t][altKey]) { this[t][neuKey] = this[t][altKey]; delete this[t][altKey]; } });   // Abzug und Fahrzeug wandern mit
             return ok({ status: "ok", datum: tag, beginn: b.neuBeginn, ende: b.neuEnde, netto: nettoAus(b.neuBeginn, b.neuEnde), nettoAlt: nettoAus(b.beginn, b.ende) });
           }
+          if (b.aktion === "loeschen") {
+            if (!String(b.grund || "").trim()) return ok({ status: "error", message: "Bitte einen Grund angeben." });
+            const key = [b.name, b.datum, b.beginn, b.ende].join("|");
+            this.geloescht[key] = (this.geloescht[key] || 0) + 1;
+            return ok({ status: "ok", datum: b.datum, beginn: b.beginn, ende: b.ende, netto: nettoAus(b.beginn, b.ende) });
+          }
           if (b.aktion === "durchschnitt") {
             const tag = 86400000, vorBeginn = isoVon(new Date(alsDatum(b.von).getTime() - tag)), fBis = vorBeginn < "2026-10-15" ? vorBeginn : "2026-10-15", fVon = isoVon(new Date(alsDatum(fBis).getTime() - 90 * tag));
             const abw = new Set(), gesehen = new Set(); let st = 0;
@@ -1221,11 +1244,11 @@
             else if (m) m.aktiv = false;
             return ok({ status: "ok", mitarbeiterAlle: t.slice().sort((a, c) => a.name.localeCompare(c.name, "de")) });
           }
-          ok(Object.assign({ status: "ok", version: "2.8", monat: b.monat, heute: "2026-10-16", stand: new Date().toISOString() }, this.daten(b.monat)));
+          ok(Object.assign({ status: "ok", version: "2.9", monat: b.monat, heute: "2026-10-16", stand: new Date().toISOString() }, this.daten(b.monat)));
         }, 500));
       },
       team: null,
-      korr: {}, fzAend: {}, zeitAend: {}, umbenannt: {}, tagStd: {}, extra: [], zeitraumAend: {},
+      korr: {}, fzAend: {}, zeitAend: {}, umbenannt: {}, tagStd: {}, extra: [], zeitraumAend: {}, geloescht: {},
       antraege: [
         { id: "U5", name: "Mia Fiktiv", von: "2026-10-21", bis: "2026-10-23", tage: 3, notiz: "Familienfeier", status: "beantragt", eingang: "15.10.2026 08:12", entschieden: "", antwort: "" },
         { id: "U6", name: "Lukas Attrappe", von: "2026-10-26", bis: "2026-10-30", tage: 5, notiz: "", status: "beantragt", eingang: "16.10.2026 07:40", entschieden: "", antwort: "" },
@@ -1300,6 +1323,8 @@
           if (k) { x.leerzeit = k.abzug; x.netto = Math.round((x.nettoGemeldet - k.abzug) * 100) / 100; x.korrektur = { abzugszeit: k.abzugszeit, grund: k.grund, abzug: k.abzug, am: "18.10.2026 (Demo)" }; }
           if (fa) { fa.alt = fa.alt === undefined ? x.fahrzeug : fa.alt; x.fahrzeugAlt = { alt: fa.alt, grund: fa.grund, am: "18.10.2026 (Demo)" }; x.fahrzeug = fa.neu; }
         });
+        const weg = Object.assign({}, this.geloescht);   // gelöschte Einträge (bei doppelten: je Löschung einer)
+        for (let i = e.length - 1; i >= 0; i--) { const k = [e[i].name, e[i].datum, e[i].beginn, e[i].ende].join("|"); if (e[i].art === "arbeit" && weg[k] > 0) { weg[k]--; e.splice(i, 1); } }
         const team = this.teamListe();
         return { mitarbeiter: team.filter((x) => x.aktiv).map((x) => ({ name: x.name, standort: "EU" })), mitarbeiterAlle: team.slice().sort((a, c) => a.name.localeCompare(c.name, "de")), fahrzeuge: fz,
           fahrzeugListe: fz.map((k, i) => ({ kennzeichen: k, name: ["BTW 1", "BTW 8", "BUS 6", "LMW 4", "TSW 3", "BUS 9", "BTW 9"][i], kategorie: ["BTW", "BTW", "BUS", "LMW", "TSW", "BUS", "BTW"][i] })), eintraege: e, erledigt: this.erledigt.slice(), konto: this.kontoFuer(m), ...(nurEintraege ? {} : this.urlaubDaten(m, e, team)) };
